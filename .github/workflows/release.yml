@@ -1,0 +1,83 @@
+name: Release
+
+# Publishes to PyPI using Trusted Publishing (OIDC), so no API token is stored
+# in this repository. The trust relationship is configured on PyPI at
+# https://pypi.org/manage/account/publishing/ and must name this repository,
+# this workflow file, and the environment below.
+#
+# Trigger manually for the first release, or by publishing a GitHub release
+# once tags are in use.
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: pytest (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package with test extras
+        run: pip install -e '.[test]'
+
+      - name: Run pytest
+        # No API key is set, so the offline suite must pass with no network.
+        run: pytest -q
+
+  build:
+    name: Build distributions
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build sdist and wheel
+        run: |
+          pip install build twine
+          python -m build
+
+      - name: Validate metadata and the rendered long description
+        run: twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    # Named on the PyPI publisher configuration. Add required reviewers to this
+    # environment in repository settings to gate publishing behind approval.
+    environment: pypi
+    permissions:
+      # Required for Trusted Publishing: lets the job mint a short-lived OIDC
+      # token for PyPI. Nothing else in this workflow needs it, which is why
+      # publishing is a separate job.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

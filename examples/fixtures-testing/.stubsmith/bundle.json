@@ -1,0 +1,492 @@
+{
+  "cursor": "59",
+  "endpoints": [
+    {
+      "domain": "localhost:8081",
+      "fingerprint_value_paths": [],
+      "is_dynamic": false,
+      "method": "GET",
+      "path_template": "/api/orders",
+      "stubs": [
+        {
+          "content_type": null,
+          "degraded": false,
+          "field_rules": [
+            {
+              "action": "keep",
+              "path": "resp.total"
+            },
+            {
+              "action": "keep",
+              "path": "resp.orders.[].order_id"
+            },
+            {
+              "action": "keep",
+              "path": "resp.orders.[].status"
+            },
+            {
+              "action": "keep",
+              "path": "query.status"
+            },
+            {
+              "action": "keep",
+              "path": "query.limit"
+            }
+          ],
+          "fingerprint": "15d2fd0d27a9595f",
+          "key_paths": [],
+          "query_names": [
+            "limit",
+            "status"
+          ],
+          "variants": [
+            {
+              "body": "{\"orders\": [{\"order_id\": 5234, \"status\": \"shipped\"}, {\"order_id\": 6102, \"status\": \"shipped\"}], \"total\": 2}",
+              "count": 2,
+              "duration_ms": 1,
+              "headers": {
+                "Content-Length": "106",
+                "Content-Type": "application/json; charset=utf-8",
+                "Date": "<masked>",
+                "Server": "<masked>"
+              },
+              "status": 200
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "localhost:8081",
+      "fingerprint_value_paths": [],
+      "is_dynamic": true,
+      "method": "GET",
+      "path_template": "/api/orders/{id}",
+      "stubs": [
+        {
+          "content_type": null,
+          "degraded": false,
+          "field_rules": [
+            {
+              "action": "keep",
+              "path": "resp.order_id"
+            },
+            {
+              "action": "keep",
+              "path": "resp.status"
+            },
+            {
+              "action": "keep",
+              "path": "resp.total_cents"
+            },
+            {
+              "action": "keep",
+              "path": "resp.items.[].sku"
+            },
+            {
+              "action": "keep",
+              "path": "resp.items.[].qty"
+            },
+            {
+              "action": "keep",
+              "path": "resp.items.[].price_cents"
+            }
+          ],
+          "fingerprint": "fc552c95a0bb0d3e",
+          "key_paths": [],
+          "query_names": [],
+          "variants": [
+            {
+              "body": "{\"order_id\": 5234, \"status\": \"shipped\", \"items\": [{\"sku\": \"widget-pro\", \"qty\": 3, \"price_cents\": 2933}], \"total_cents\": 8799, \"customer_email\": \"<masked>\", \"created_at\": \"<masked>\"}",
+              "count": 2,
+              "duration_ms": 2,
+              "headers": {
+                "Content-Length": "206",
+                "Content-Type": "application/json; charset=utf-8",
+                "Date": "<masked>",
+                "Server": "<masked>"
+              },
+              "status": 200
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "localhost:8081",
+      "fingerprint_value_paths": [],
+      "is_dynamic": true,
+      "method": "GET",
+      "path_template": "/api/users/{id}",
+      "stubs": [
+        {
+          "content_type": null,
+          "degraded": false,
+          "field_rules": [
+            {
+              "action": "keep",
+              "path": "resp.id"
+            },
+            {
+              "action": "keep",
+              "path": "resp.plan"
+            },
+            {
+              "action": "keep",
+              "path": "resp.active"
+            }
+          ],
+          "fingerprint": "fc552c95a0bb0d3e",
+          "key_paths": [],
+          "query_names": [],
+          "variants": [
+            {
+              "body": "{\"id\": 4821, \"name\": \"<masked>\", \"email\": \"<masked>\", \"plan\": \"pro\", \"active\": true, \"address\": {\"line1\": \"<masked>\", \"city\": \"<masked>\", \"postcode\": \"<masked>\"}, \"created_at\": \"<masked>\", \"last_login\": \"<masked>\"}",
+              "count": 2,
+              "duration_ms": 6,
+              "headers": {
+                "Content-Length": "261",
+                "Content-Type": "application/json; charset=utf-8",
+                "Date": "<masked>",
+                "Server": "<masked>"
+              },
+              "status": 200
+            },
+            {
+              "body": "{\"error\": \"<masked>\", \"code\": \"<masked>\"}",
+              "count": 2,
+              "duration_ms": 3,
+              "headers": {
+                "Content-Length": "53",
+                "Content-Type": "application/json; charset=utf-8",
+                "Date": "<masked>",
+                "Server": "<masked>"
+              },
+              "status": 404
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "localhost:8081",
+      "fingerprint_value_paths": [],
+      "is_dynamic": false,
+      "method": "POST",
+      "path_template": "/api/auth/login",
+      "stubs": [
+        {
+          "content_type": "application/json",
+          "degraded": false,
+          "field_rules": [
+            {
+              "action": "keep",
+              "path": "resp.expires_in"
+            },
+            {
+              "action": "keep",
+              "path": "resp.user_id"
+            }
+          ],
+          "fingerprint": "88a4c74a696c6e89",
+          "key_paths": [
+            "email",
+            "password"
+          ],
+          "query_names": [],
+          "variants": [
+            {
+              "body": "{\"token\": \"<masked>\", \"expires_in\": 7200, \"user_id\": 4821, \"session_token\": \"<masked>\"}",
+              "count": 2,
+              "duration_ms": 2,
+              "headers": {
+                "Content-Length": "113",
+                "Content-Type": "application/json; charset=utf-8",
+                "Date": "<masked>",
+                "Server": "<masked>"
+              },
+              "status": 200
+            },
+            {
+              "body": "{\"error\": \"<masked>\"}",
+              "count": 2,
+              "duration_ms": 2,
+              "headers": {
+                "Content-Length": "32",
+                "Content-Type": "application/json; charset=utf-8",
+                "Date": "<masked>",
+                "Server": "<masked>"
+              },
+              "status": 401
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "localhost:8081",
+      "fingerprint_value_paths": [],
+      "is_dynamic": false,
+      "method": "POST",
+      "path_template": "/api/orders",
+      "stubs": [
+        {
+          "content_type": "application/json",
+          "degraded": false,
+          "field_rules": [
+            {
+              "action": "keep",
+              "path": "resp.order_id"
+            },
+            {
+              "action": "keep",
+              "path": "resp.status"
+            },
+            {
+              "action": "keep",
+              "path": "resp.total_cents"
+            },
+            {
+              "action": "keep",
+              "path": "resp.items.[].sku"
+            },
+            {
+              "action": "keep",
+              "path": "resp.items.[].qty"
+            },
+            {
+              "action": "keep",
+              "path": "resp.items.[].price_cents"
+            }
+          ],
+          "fingerprint": "67193bd52728bfbb",
+          "key_paths": [
+            "item",
+            "qty",
+            "card_number",
+            "note"
+          ],
+          "query_names": [],
+          "variants": [
+            {
+              "body": "{\"order_id\": 7000, \"status\": \"confirmed\", \"items\": [{\"sku\": \"widget-pro\", \"qty\": 3, \"price_cents\": 2933}], \"total_cents\": 8799, \"customer_email\": \"<masked>\", \"created_at\": \"<masked>\"}",
+              "count": 2,
+              "duration_ms": 2,
+              "headers": {
+                "Content-Length": "208",
+                "Content-Type": "application/json; charset=utf-8",
+                "Date": "<masked>",
+                "Server": "<masked>"
+              },
+              "status": 201
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "localhost:8081",
+      "fingerprint_value_paths": [],
+      "is_dynamic": false,
+      "method": "POST",
+      "path_template": "/api/payments/charges",
+      "stubs": [
+        {
+          "content_type": "application/json",
+          "degraded": false,
+          "field_rules": [
+            {
+              "action": "keep",
+              "path": "resp.charge_id"
+            },
+            {
+              "action": "keep",
+              "path": "resp.code"
+            }
+          ],
+          "fingerprint": "4a17ca4d93dddd7d",
+          "key_paths": [
+            "amount_cents",
+            "currency",
+            "card",
+            "card.number",
+            "card.exp_month",
+            "card.exp_year",
+            "card.cvc",
+            "card.holder",
+            "customer",
+            "customer.email",
+            "customer.name",
+            "customer.phone"
+          ],
+          "query_names": [],
+          "variants": [
+            {
+              "body": "{\"error\": \"<masked>\", \"code\": \"INSUFFICIENT_FUNDS\", \"charge_id\": \"ch_100001\"}",
+              "count": 2,
+              "duration_ms": 1,
+              "headers": {
+                "Content-Length": "82",
+                "Content-Type": "application/json; charset=utf-8",
+                "Date": "<masked>",
+                "Server": "<masked>"
+              },
+              "status": 402
+            }
+          ]
+        },
+        {
+          "content_type": "application/json",
+          "degraded": false,
+          "field_rules": [
+            {
+              "action": "keep",
+              "path": "resp.charge_id"
+            },
+            {
+              "action": "keep",
+              "path": "resp.status"
+            },
+            {
+              "action": "keep",
+              "path": "resp.amount_cents"
+            },
+            {
+              "action": "keep",
+              "path": "resp.currency"
+            },
+            {
+              "action": "keep",
+              "path": "resp.card.last4"
+            },
+            {
+              "action": "keep",
+              "path": "resp.card.brand"
+            }
+          ],
+          "fingerprint": "79148562d5fb5ae8",
+          "key_paths": [
+            "amount_cents",
+            "currency",
+            "card",
+            "card.number",
+            "card.exp_month",
+            "card.exp_year",
+            "card.cvc",
+            "card.holder",
+            "customer",
+            "customer.email",
+            "customer.name",
+            "customer.phone",
+            "idempotency_key"
+          ],
+          "query_names": [],
+          "variants": [
+            {
+              "body": "{\"charge_id\": \"ch_100000\", \"status\": \"succeeded\", \"amount_cents\": 4250, \"currency\": \"EUR\", \"card\": {\"last4\": \"4242\", \"brand\": \"visa\"}, \"created_at\": \"<masked>\"}",
+              "count": 2,
+              "duration_ms": 2,
+              "headers": {
+                "Content-Length": "172",
+                "Content-Type": "application/json; charset=utf-8",
+                "Date": "<masked>",
+                "Server": "<masked>"
+              },
+              "status": 201
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "localhost:8081",
+      "fingerprint_value_paths": [],
+      "is_dynamic": false,
+      "method": "POST",
+      "path_template": "/api/users",
+      "stubs": [
+        {
+          "content_type": "application/json",
+          "degraded": false,
+          "field_rules": [
+            {
+              "action": "keep",
+              "path": "resp.id"
+            },
+            {
+              "action": "keep",
+              "path": "resp.created"
+            }
+          ],
+          "fingerprint": "90dc0baeeee2ad16",
+          "key_paths": [
+            "name",
+            "email",
+            "password",
+            "phone"
+          ],
+          "query_names": [],
+          "variants": [
+            {
+              "body": "{\"id\": 6000, \"name\": \"<masked>\", \"email\": \"<masked>\", \"created\": true, \"created_at\": \"<masked>\"}",
+              "count": 2,
+              "duration_ms": 2,
+              "headers": {
+                "Content-Length": "122",
+                "Content-Type": "application/json; charset=utf-8",
+                "Date": "<masked>",
+                "Server": "<masked>"
+              },
+              "status": 201
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "domain": "localhost:8081",
+      "fingerprint_value_paths": [],
+      "is_dynamic": true,
+      "method": "PUT",
+      "path_template": "/api/orders/{id}",
+      "stubs": [
+        {
+          "content_type": "application/json",
+          "degraded": false,
+          "field_rules": [
+            {
+              "action": "keep",
+              "path": "resp.order_id"
+            },
+            {
+              "action": "keep",
+              "path": "resp.status"
+            }
+          ],
+          "fingerprint": "e314d5b772be48b5",
+          "key_paths": [
+            "status"
+          ],
+          "query_names": [],
+          "variants": [
+            {
+              "body": "{\"order_id\": 5234, \"status\": \"cancelled\"}",
+              "count": 2,
+              "duration_ms": 2,
+              "headers": {
+                "Content-Length": "41",
+                "Content-Type": "application/json; charset=utf-8",
+                "Date": "<masked>",
+                "Server": "<masked>"
+              },
+              "status": 200
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "generated_at": "2026-08-24T14:28:09.310Z",
+  "ok": true,
+  "version": 1
+}

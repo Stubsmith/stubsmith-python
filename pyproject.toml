@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stubsmith"
+# Read from stubsmith/_version.py, the single source of truth also used by the
+# SDK's User-Agent. A hardcoded literal here had already drifted behind it.
+dynamic = ["version"]
+description = "StubSmith Python SDK - instrument outbound HTTP calls for capture & replay"
+readme = "README.md"
+license = { text = "MIT" }
+# 3.8 has been end-of-life since October 2024 and was never exercised by CI, so
+# claiming it was an untested promise. The floor is what the matrix proves.
+requires-python = ">=3.9"
+dependencies = []
+authors = [{ name = "Stubsmith" }]
+keywords = ["testing", "http", "mocking", "fixtures", "replay", "vcr"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Testing :: Mocking",
+]
+
+[project.urls]
+Homepage      = "https://stubsmith.dev"
+Documentation = "https://docs.stubsmith.dev"
+Guides        = "https://stubsmith.dev/guides"
+Source        = "https://github.com/Stubsmith/stubsmith-python"
+Issues        = "https://github.com/Stubsmith/stubsmith-python/issues"
+
+[project.optional-dependencies]
+requests = ["requests>=2.20"]
+httpx    = ["httpx>=0.23"]
+privacy  = ["cryptography>=41"]
+testing  = ["responses>=0.23"]
+test     = [
+    "pytest>=7",
+    "responses>=0.23",
+    "respx>=0.20",
+    "requests>=2.20",
+    "httpx>=0.23",
+    "anyio[trio]>=3",
+    "cryptography>=41",
+]
+
+[project.scripts]
+stubsmith = "stubsmith.cli:_cli_entry"
+
+[tool.setuptools.dynamic]
+version = { attr = "stubsmith._version.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["stubsmith*"]
+
+[tool.pytest.ini_options]
+# tests/           - the SDK's own unit tests; always hermetic (no API key needed).
+# examples/fixtures-testing/tests/
+#                  - the ported fixtures-testing example tests; hermetic (offline
+#                    tests use vendored JSON; live tests are skipped without a key).
+# examples/python/test_charge_fixtures.py is NOT listed here: it calls
+# stubsmith.fixtures() at module import, which requires STUBSMITH_API_KEY and a
+# live backend, so it fails at collection without them.
+testpaths = ["tests", "examples/fixtures-testing/tests"]
+markers = [
+    "live: tests that call the real Stubsmith backend (require STUBSMITH_API_KEY)",
+]

@@ -1,0 +1,775 @@
+{
+  "_comment": "Golden test vectors for the shared field-rules masker (browser JS + Python SDK). Each vector drives compile_field_rules / apply_field_rules / apply_resp_field_rules. Comparison rules: (1) When input content_type normalises to application/json, compare masked_body by parsing both sides as JSON (json.loads / JSON.parse) so that key-ordering and spacing differences between json.dumps and JSON.stringify are irrelevant. (2) When input content_type normalises to application/x-www-form-urlencoded, compare masked_body as a parsed param map (urllib.parse.parse_qs / URLSearchParams iteration) stored here as {name: [values]} - urlencode vs URLSearchParams ordering and percent-encoding can differ. (3) For opaque (non-JSON, non-form) bodies, compare masked_body as a plain string. (4) masked_query is always stored as a parsed param map {name: [values]} and compared after parsing the actual output string. (5) masked_headers and masked_resp_headers are compared as plain string→string dicts.",
+  "vectors": [
+    {
+      "name": "all-scalars-masked",
+      "description": "No keep rules. JSON body with all four scalar types: string→<masked>, number→0, bool→false, null→null (type-appropriate placeholders).",
+      "field_rules": [],
+      "input": {
+        "body": "{\"str\":\"hello\",\"num\":42,\"flag\":true,\"nil\":null}",
+        "content_type": "application/json",
+        "headers": {"content-type": "application/json"},
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": {"str": "<masked>", "num": 0, "flag": false, "nil": null},
+        "masked_headers": {"content-type": "application/json"},
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "body-nested-dict-keep",
+      "description": "body. namespace: keep a nested path (body.user.plan). Other paths masked. Shows dict recursion with .key segments.",
+      "field_rules": [
+        {"path": "body.user.plan", "action": "keep"}
+      ],
+      "input": {
+        "body": "{\"user\":{\"plan\":\"pro\",\"token\":\"secret\"}}",
+        "content_type": "application/json",
+        "headers": {"content-type": "application/json"},
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": {"user": {"plan": "pro", "token": "<masked>"}},
+        "masked_headers": {"content-type": "application/json"},
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "body-array-all-elements",
+      "description": "Body walk: arrays iterate ALL elements through the [] segment. Keep body.items.[].id; secret masked for every element.",
+      "field_rules": [
+        {"path": "body.items.[].id", "action": "keep"}
+      ],
+      "input": {
+        "body": "{\"items\":[{\"id\":1,\"secret\":\"a\"},{\"id\":2,\"secret\":\"b\"}]}",
+        "content_type": "application/json",
+        "headers": {},
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": {"items": [{"id": 1, "secret": "<masked>"}, {"id": 2, "secret": "<masked>"}]},
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "null-stays-null-without-keep",
+      "description": "null scalar at a non-kept path returns null (not <masked>). The null placeholder is null itself - returned before checking the keep set.",
+      "field_rules": [],
+      "input": {
+        "body": "{\"value\":null,\"str\":\"hello\"}",
+        "content_type": "application/json",
+        "headers": {},
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": {"value": null, "str": "<masked>"},
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "non-json-body",
+      "description": "Non-JSON, non-form body → fail-closed: the literal string \"<masked>\" regardless of keep rules.",
+      "field_rules": [
+        {"path": "body.anything", "action": "keep"}
+      ],
+      "input": {
+        "body": "binary-data-here",
+        "content_type": "text/plain",
+        "headers": {},
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": "<masked>",
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "form-encoded-keep-mask",
+      "description": "Form-encoded body: flat keys; kept values pass (regex-backstopped), masked values → \"<masked>\" per occurrence.",
+      "field_rules": [
+        {"path": "body.username", "action": "keep"}
+      ],
+      "input": {
+        "body": "username=alice&password=secret",
+        "content_type": "application/x-www-form-urlencoded",
+        "headers": {},
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": {"username": ["alice"], "password": ["<masked>"]},
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "form-encoded-repeated-values",
+      "description": "Form-encoded with repeated keys: all values for a non-kept key are each replaced with \"<masked>\".",
+      "field_rules": [
+        {"path": "body.tag", "action": "keep"}
+      ],
+      "input": {
+        "body": "tag=a&tag=b&name=Alice",
+        "content_type": "application/x-www-form-urlencoded",
+        "headers": {},
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": {"tag": ["a", "b"], "name": ["<masked>"]},
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "header-allowlist",
+      "description": "Headers: HEADER_ALLOWLIST (9 names) kept without an explicit keep rule; all others → \"<masked>\". Verifies all 9 allowlist names.",
+      "field_rules": [],
+      "input": {
+        "body": "",
+        "content_type": "",
+        "headers": {
+          "content-type": "application/json",
+          "content-length": "42",
+          "accept": "application/json",
+          "accept-encoding": "gzip",
+          "accept-language": "en-US",
+          "user-agent": "stubsmith/1.0",
+          "host": "api.example.com",
+          "cache-control": "no-cache",
+          "transfer-encoding": "chunked",
+          "authorization": "Bearer tok",
+          "x-custom": "val"
+        },
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {
+          "content-type": "application/json",
+          "content-length": "42",
+          "accept": "application/json",
+          "accept-encoding": "gzip",
+          "accept-language": "en-US",
+          "user-agent": "stubsmith/1.0",
+          "host": "api.example.com",
+          "cache-control": "no-cache",
+          "transfer-encoding": "chunked",
+          "authorization": "<masked>",
+          "x-custom": "<masked>"
+        },
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "header-keep-rule",
+      "description": "header. namespace: explicit keep rule allows a non-allowlist header through. Non-kept, non-allowlist headers still masked.",
+      "field_rules": [
+        {"path": "header.x-request-id", "action": "keep"}
+      ],
+      "input": {
+        "body": "",
+        "content_type": "",
+        "headers": {
+          "x-request-id": "abc-123",
+          "authorization": "Bearer tok",
+          "content-type": "application/json"
+        },
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {
+          "x-request-id": "abc-123",
+          "authorization": "<masked>",
+          "content-type": "application/json"
+        },
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "query-keep-mask",
+      "description": "query. namespace: kept param passes through (regex-backstopped); other params → \"<masked>\".",
+      "field_rules": [
+        {"path": "query.page", "action": "keep"}
+      ],
+      "input": {
+        "body": "",
+        "content_type": "",
+        "headers": {},
+        "query": "page=2&secret=tok123",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {},
+        "masked_query": {"page": ["2"], "secret": ["<masked>"]},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "resp-body-namespace",
+      "description": "resp. namespace: keep response body fields independently from body. (request-body keeps do not affect response body).",
+      "field_rules": [
+        {"path": "body.id", "action": "keep"},
+        {"path": "resp.id", "action": "keep"},
+        {"path": "resp.status", "action": "keep"}
+      ],
+      "input": {
+        "body": "{\"id\":\"req-id\",\"secret\":\"req-sec\"}",
+        "content_type": "application/json",
+        "headers": {},
+        "query": "",
+        "resp_body": "{\"id\":\"order-123\",\"status\":\"created\",\"token\":\"secret\"}",
+        "resp_content_type": "application/json",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": {"id": "req-id", "secret": "<masked>"},
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": {"id": "order-123", "status": "created", "token": "<masked>"},
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "resp-header-independent",
+      "description": "resp_header. namespace is fully independent of header.. A header.x-custom keep rule does NOT keep x-custom in resp_headers.",
+      "field_rules": [
+        {"path": "header.x-custom", "action": "keep"}
+      ],
+      "input": {
+        "body": "",
+        "content_type": "",
+        "headers": {"x-custom": "req-val", "content-type": "application/json"},
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {"x-custom": "resp-val", "content-type": "application/json"}
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {"x-custom": "req-val", "content-type": "application/json"},
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {"x-custom": "<masked>", "content-type": "application/json"}
+      }
+    },
+    {
+      "name": "path-entries-ignored",
+      "description": "path.{...} keep rules are metadata-only (path template namespace) and have no effect on body, header, or query masking.",
+      "field_rules": [
+        {"path": "path.{id}", "action": "keep"},
+        {"path": "path.{userId}", "action": "keep"}
+      ],
+      "input": {
+        "body": "{\"secret\":\"data\",\"num\":99}",
+        "content_type": "application/json",
+        "headers": {"authorization": "Bearer tok"},
+        "query": "q=test",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": {"secret": "<masked>", "num": 0},
+        "masked_headers": {"authorization": "<masked>"},
+        "masked_query": {"q": ["<masked>"]},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "content-type-charset-normalised",
+      "description": "Content-type normalisation: application/json; charset=utf-8 → treated as application/json (semicolon and suffix stripped).",
+      "field_rules": [
+        {"path": "body.x", "action": "keep"}
+      ],
+      "input": {
+        "body": "{\"x\":\"hello\",\"y\":\"world\"}",
+        "content_type": "application/json; charset=utf-8",
+        "headers": {},
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": {"x": "hello", "y": "<masked>"},
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "form-encoded-charset-normalised",
+      "description": "Content-type normalisation: application/x-www-form-urlencoded; charset=utf-8 → treated as form-encoded.",
+      "field_rules": [
+        {"path": "body.a", "action": "keep"}
+      ],
+      "input": {
+        "body": "a=foo&b=bar",
+        "content_type": "application/x-www-form-urlencoded; charset=utf-8",
+        "headers": {},
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": {"a": ["foo"], "b": ["<masked>"]},
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "regex-backstop-email-on-kept",
+      "description": "Regex backstop on kept strings: a kept field containing an email address is further masked by the email pattern.",
+      "field_rules": [
+        {"path": "body.contact", "action": "keep"}
+      ],
+      "input": {
+        "body": "{\"contact\":\"user@example.com\",\"other\":\"data\"}",
+        "content_type": "application/json",
+        "headers": {},
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": {"contact": "<masked>", "other": "<masked>"},
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "regex-backstop-card-on-kept",
+      "description": "Regex backstop on kept strings: a kept field containing a 16-digit card number is masked by the card pattern.",
+      "field_rules": [
+        {"path": "body.payment", "action": "keep"}
+      ],
+      "input": {
+        "body": "{\"payment\":\"4111111111111111\",\"plan\":\"pro\"}",
+        "content_type": "application/json",
+        "headers": {},
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": {"payment": "<masked>", "plan": "<masked>"},
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "action-mask-explicit",
+      "description": "action: \"mask\" is the default fail-closed action; explicitly masking a field masks it.",
+      "field_rules": [
+        {"path": "body.user", "action": "mask"}
+      ],
+      "input": {
+        "body": "{\"user\":\"alice\",\"id\":1}",
+        "content_type": "application/json",
+        "headers": {},
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": {"user": "<masked>", "id": 0},
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "action-default-to-mask",
+      "description": "A rule with no action field defaults to mask (fail-closed). Only action: \"keep\" is honoured.",
+      "field_rules": [
+        {"path": "body.user"}
+      ],
+      "input": {
+        "body": "{\"user\":\"alice\",\"id\":1}",
+        "content_type": "application/json",
+        "headers": {},
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": {"user": "<masked>", "id": 0},
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "resp-header-keep-rule",
+      "description": "resp_header. namespace: explicit keep rule allows a response header through. Non-kept, non-allowlist resp headers masked.",
+      "field_rules": [
+        {"path": "resp_header.x-trace-id", "action": "keep"}
+      ],
+      "input": {
+        "body": "",
+        "content_type": "",
+        "headers": {},
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {
+          "x-trace-id": "trace-abc",
+          "set-cookie": "sess=x",
+          "content-type": "application/json"
+        }
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {
+          "x-trace-id": "trace-abc",
+          "set-cookie": "<masked>",
+          "content-type": "application/json"
+        }
+      }
+    },
+    {
+      "name": "query-regex-backstop",
+      "description": "Regex backstop applies to kept query values: kept query param containing email address → email pattern replaces it.",
+      "field_rules": [
+        {"path": "query.email", "action": "keep"}
+      ],
+      "input": {
+        "body": "",
+        "content_type": "",
+        "headers": {},
+        "query": "email=user@example.com&page=1",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {},
+        "masked_query": {"email": ["<masked>"], "page": ["<masked>"]},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "body-deep-array-nested",
+      "description": "Deep nested path through array: body.data.[].user.plan keep. Both array elements processed; only plan kept at each.",
+      "field_rules": [
+        {"path": "body.data.[].user.plan", "action": "keep"}
+      ],
+      "input": {
+        "body": "{\"data\":[{\"user\":{\"plan\":\"pro\",\"token\":\"sec1\"}},{\"user\":{\"plan\":\"free\",\"token\":\"sec2\"}}]}",
+        "content_type": "application/json",
+        "headers": {},
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": {"data": [{"user": {"plan": "pro", "token": "<masked>"}}, {"user": {"plan": "free", "token": "<masked>"}}]},
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "float-number-placeholder",
+      "description": "Float scalars (not int) at non-kept paths also masked to 0. Verifies number→0 covers both int and float.",
+      "field_rules": [],
+      "input": {
+        "body": "{\"price\":3.14,\"qty\":2}",
+        "content_type": "application/json",
+        "headers": {},
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": {"price": 0, "qty": 0},
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "query-multi-value-mask",
+      "description": "Query with repeated param names: each value masked independently.",
+      "field_rules": [],
+      "input": {
+        "body": "",
+        "content_type": "",
+        "headers": {},
+        "query": "tag=a&tag=b&tag=c",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {},
+        "masked_query": {"tag": ["<masked>", "<masked>", "<masked>"]},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "form-blank-values",
+      "description": "Form-encoded body and query with blank values (a=&b=x). Kept blank-valued key (a) stays as empty string; non-kept key (b) is masked. Confirms keep_blank_values parity between Python urllib.parse and JS URLSearchParams.",
+      "field_rules": [
+        {"path": "body.a", "action": "keep"},
+        {"path": "query.a", "action": "keep"}
+      ],
+      "input": {
+        "body": "a=&b=x",
+        "content_type": "application/x-www-form-urlencoded",
+        "headers": {},
+        "query": "a=&b=x",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": {"a": [""], "b": ["<masked>"]},
+        "masked_headers": {},
+        "masked_query": {"a": [""], "b": ["<masked>"]},
+        "masked_resp_body": "",
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "resp-status-scoped-keep",
+      "description": "resp:NNN. namespace: a status-scoped keep for status 200 keeps error_code only at 200; at a different status (404) the generic keep applies. Tests the primary scoped-keep path.",
+      "field_rules": [
+        {"path": "resp.order_id", "action": "keep"},
+        {"path": "resp:200.amount", "action": "keep"}
+      ],
+      "resp_status": 200,
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "headers": {},
+        "query": "",
+        "resp_body": "{\"order_id\":\"ord-1\",\"amount\":99,\"token\":\"secret\"}",
+        "resp_content_type": "application/json",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": {"order_id": "ord-1", "amount": 99, "token": "<masked>"},
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "resp-status-scoped-mask-overrides-generic-keep",
+      "description": "resp:NNN. mask overrides a generic resp. keep. The field 'customer_email' is kept generically but masked for status 200.",
+      "field_rules": [
+        {"path": "resp.customer_email", "action": "keep"},
+        {"path": "resp:200.customer_email", "action": "mask"}
+      ],
+      "resp_status": 200,
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "headers": {},
+        "query": "",
+        "resp_body": "{\"customer_email\":\"alice@example.com\",\"id\":\"ord-1\"}",
+        "resp_content_type": "application/json",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": {"customer_email": "<masked>", "id": "<masked>"},
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "resp-status-scoped-no-status-falls-back-to-generic",
+      "description": "When resp_status is absent (None), status-scoped rules are ignored and only generic resp. rules apply. Verifies backward-compat for callers that omit resp_status.",
+      "field_rules": [
+        {"path": "resp.id", "action": "keep"},
+        {"path": "resp:404.error", "action": "keep"}
+      ],
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "headers": {},
+        "query": "",
+        "resp_body": "{\"id\":\"abc\",\"error\":\"not_found\"}",
+        "resp_content_type": "application/json",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": {"id": "abc", "error": "<masked>"},
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "resp-status-scoped-wrong-status-no-effect",
+      "description": "A resp:404. keep rule has no effect when the actual response status is 200. The field uses the generic rule (or defaults to mask).",
+      "field_rules": [
+        {"path": "resp:404.error", "action": "keep"}
+      ],
+      "resp_status": 200,
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "headers": {},
+        "query": "",
+        "resp_body": "{\"error\":\"something\",\"id\":1}",
+        "resp_content_type": "application/json",
+        "resp_headers": {}
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": {"error": "<masked>", "id": 0},
+        "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "resp-header-status-scoped-keep",
+      "description": "resp_header:NNN. namespace: a status-scoped keep for status 429 keeps retry-after. Non-kept, non-allowlist resp headers remain masked.",
+      "field_rules": [
+        {"path": "resp_header:429.retry-after", "action": "keep"}
+      ],
+      "resp_status": 429,
+      "input": {
+        "body": "",
+        "content_type": "",
+        "headers": {},
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {
+          "retry-after": "60",
+          "x-secret": "hidden",
+          "content-type": "application/json"
+        }
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {
+          "retry-after": "60",
+          "x-secret": "<masked>",
+          "content-type": "application/json"
+        }
+      }
+    },
+    {
+      "name": "resp-header-status-scoped-mask-overrides-generic-keep",
+      "description": "resp_header:NNN. mask overrides a generic resp_header. keep. x-trace-id is kept generically but masked for status 500.",
+      "field_rules": [
+        {"path": "resp_header.x-trace-id", "action": "keep"},
+        {"path": "resp_header:500.x-trace-id", "action": "mask"}
+      ],
+      "resp_status": 500,
+      "input": {
+        "body": "",
+        "content_type": "",
+        "headers": {},
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {
+          "x-trace-id": "trace-abc",
+          "content-type": "application/json"
+        }
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {},
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {
+          "x-trace-id": "<masked>",
+          "content-type": "application/json"
+        }
+      }
+    }
+  ]
+}
