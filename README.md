@@ -9,8 +9,12 @@ non-blocking and fire-and-forget: a background daemon thread drains a bounded
 queue; any failure (network, serialization, queue overflow) is silently
 discarded and never propagates to your application.
 
-Anonymization / masking is applied **server-side** by the Go ingest service
-(`ingest-go`) - do not pre-mask data client-side.
+Masking is applied **in this SDK**, in your own process, before any capture
+leaves it: the ingest service receives masked bodies plus structural names
+(field paths, header names, query-parameter names), never original values.  A
+field with no explicit `keep` rule is masked, so a field the rules do not
+mention cannot leak.  The server runs pattern backstops on what arrives, but it
+is a second line of defence, not the masking layer.
 
 ---
 
@@ -86,6 +90,85 @@ client.uninstrument()
 | `sample_rate`    | `1.0`                          | Fraction of calls to forward (0.0 - 1.0)                     |
 | `queue_maxsize`  | `1000`                         | Bound on the background queue; excess items are dropped       |
 | `flush_timeout`  | `$STUBSMITH_FLUSH_TIMEOUT` / `1.0` (seconds) | How long process exit waits for queued captures to drain. `0` disables the wait |
+| `backend_url`    | `$STUBSMITH_BACKEND_URL` / `https://app.stubsmith.dev/api` | API the masking rules are fetched from. A **second host**, not the ingest host |
+| `rules_poll_interval` | `60.0` (seconds)         | How often the rules cache re-polls the API for rule changes                    |
+| `wait_for_rules` | `0` (do not wait)              | Seconds `install()` blocks for the first rules sync. Raise it for short scripts (see below) |
+| `debug`          | `$STUBSMITH_DEBUG`             | Log send and sync failures to stderr. Does not change the fire-and-forget contract |
+
+**An explicit argument always wins over the environment variable**, which is
+read only when the argument is omitted, and only once, when the client is
+built. `install(api_key="sk-from-arg")` authenticates with `sk-from-arg` even if
+`$STUBSMITH_API_KEY` is set to something else; nothing re-reads the environment
+later. That matters when the key comes from a database row or a settings table
+rather than the process environment.
+
+Every parameter above is accepted by `stubsmith.install()`. All of them except
+`wait_for_rules`, which is a property of installation rather than of the client,
+are also accepted by `StubSmith()`.
+
+### What gets patched
+
+`install()` patches exactly four things, and only those:
+
+| Patched | Not patched |
+|---------|-------------|
+| `requests.sessions.Session.request` | `requests.request`, `requests.get`, `requests.post`, ... |
+| `requests.sessions.Session.send` | `urllib`, `urllib3`, `http.client` |
+| `httpx.Client.send` | `aiohttp` |
+| `httpx.AsyncClient.send` | anything below the adapter (sockets, retries) |
+
+The module-level `requests` helpers need no patch of their own: every one of
+them builds a `Session` and calls `Session.request`. Patching `Session.send` as
+well covers the other entry point, a caller that builds its own
+`PreparedRequest` and sends it, which some client libraries do.
+
+Both patch points route through each other, and `send()` re-enters itself once
+per redirect hop, so capture happens in the **outermost patched frame only**:
+one call produces one capture, and a redirect chain produces one capture
+describing the request you made rather than the hop it landed on. The guard is
+per-thread, so concurrent calls do not mask each other.
+
+Nothing below the `requests` adapter is patched. urllib3 retries and socket
+level behaviour are invisible to the SDK, and traffic sent through `urllib`,
+`http.client` or `aiohttp` is not captured at all.
+
+Because the patch lands on `Session.request` and not on the helpers, the
+obvious hand-rolled health check is wrong:
+
+```python
+# WRONG - reports a working install as broken. requests.request is never patched.
+assert requests.request.__module__ != "requests.api"
+
+# Right
+assert stubsmith.is_installed()
+```
+
+`stubsmith.is_installed()` returns `True` only while a live client is installed
+in this process: `False` before `install()`, `False` after `close()`, and
+`False` in a forked child whose client could not be revived.
+
+### Network egress and background threads
+
+`install()` talks to **two** hosts, which matters if you allow-list egress:
+
+| Host | Direction | Purpose |
+|------|-----------|---------|
+| `ingest.stubsmith.dev` | outbound POST | masked captures (`POST /v1/captures`) |
+| `app.stubsmith.dev` | outbound GET | masking rules (`GET /v1/sdk/sync`), polled every `rules_poll_interval` seconds (default 60) |
+
+Both are overridable (`url` and `backend_url`) for a project pointed at a
+different environment.
+
+It also starts exactly two daemon threads, named so they are identifiable in a
+thread dump: `stubsmith-sender` (drains the capture queue) and
+`stubsmith-rules-cache` (polls for rules).
+
+**An unreachable rules API degrades open, not closed.** A failed sync is
+logged at debug level and leaves the last known-good rules in place; it never
+raises and never stops capture. Because masking is fail-closed, a client that
+has never reached the API masks everything and still delivers captures: you get
+`novel=true` and no cleartext, not silence. A rejected key (`401`) behaves the
+same way.
 
 ### install() is idempotent and fork-safe
 
@@ -97,9 +180,17 @@ subsequent calls; call `close()` on the existing client first to reconfigure.
 `fork()` copies only the calling thread, so a forked child would otherwise
 inherit a dead sender and a queue nothing drains. The client re-arms itself in
 the child, which is what makes `install()` in a pre-fork master work: `gunicorn
---preload`, uWSGI and Celery all capture in every worker. The child starts from
-an empty queue, because the parent still holds anything that was pending at the
-moment of the fork and will send it itself.
+--preload`, uWSGI, Celery's default pool and Odoo's worker model all capture in
+every worker. The child starts from an empty queue, because the parent still
+holds anything that was pending at the moment of the fork and will send it
+itself.
+
+Both properties matter together in an embedded plugin. Odoo, for example, calls
+a module's `post_load` once in the pre-fork master and `_register_hook` on every
+registry load: the first needs fork safety to capture anything at all under
+`workers > 0`, the second needs idempotence not to leak a pair of threads per
+reload. Either call site works, and calling from both is harmless. On a version
+before 0.2.0 neither holds, so install per worker instead and guard on the pid.
 
 ### An outage cannot block your application
 
@@ -122,14 +213,117 @@ anywhere else exit latency is billed; captures still in the queue are discarded.
 
 ## How it works
 
-1. `install()` / `instrument_requests()` / `instrument_httpx()` monkey-patches
-   the relevant HTTP client (idempotent; safe to call multiple times).
+1. `install()` / `instrument_requests()` / `instrument_httpx()` patches
+   `requests.sessions.Session.request` and `.send`, plus `httpx.Client.send` /
+   `httpx.AsyncClient.send` (idempotent; repeated calls are a no-op, see
+   [What gets patched](#what-gets-patched)).
 2. Each call is timed; request headers/body and response status/headers/body
    are captured **without consuming streams** - if you opened a streaming
    response the SDK skips the body rather than interfering.
 3. Captures are placed on an in-process `queue.Queue`; a daemon thread drains
    it and POSTs to `POST /v1/captures` with `Authorization: Bearer <api_key>`.
 4. On process exit an `atexit` handler flushes the queue (bounded timeout).
+
+---
+
+## What a capture looks like on the wire
+
+This is the artifact to hand a security reviewer. Given this call, against an
+endpoint whose fingerprint has not been approved yet (the worst case for
+disclosure, since no `keep` rule exists):
+
+```python
+requests.get(
+    "https://api.example.com/v1/orders/1042?limit=50&include=customer",
+    headers={"X-Request-Id": "abc-123"},
+)
+```
+
+returning this response body:
+
+```json
+{
+  "id": "4c1f2a80-2f1e-4a2f-9f7a-2b1c6f0d9e11",
+  "customer": {"name": "Alice Martin", "email": "alice@example.com"},
+  "iban": "NL91ABNA0417164300",
+  "amount": "149.95",
+  "paid": true
+}
+```
+
+the SDK sends exactly this to `POST https://ingest.stubsmith.dev/v1/captures`,
+with `Authorization: Bearer <your project key>` and
+`User-Agent: stubsmith-sdk/0.2.0`:
+
+```json
+{
+  "sdk_version": "0.2.0",
+  "sdk_masked": true,
+  "sdk_rule_version": "0",
+  "domain": "api.example.com",
+  "path_template": "/v1/orders/{id}",
+  "path": "/v1/orders/{id}?limit=%3Cmasked%3E&include=%3Cmasked%3E",
+  "method": "GET",
+  "status": 200,
+  "req_fingerprint": "0ac4da02636b9927",
+  "resp_fingerprint": "2004bc1bf2471fe533f",
+  "key_paths": [],
+  "resp_key_paths": [
+    "id", "customer", "customer.name", "customer.email",
+    "iban", "amount", "paid"
+  ],
+  "req_header_names": ["accept", "accept-encoding", "connection", "user-agent", "x-request-id"],
+  "resp_header_names": ["content-type", "date", "server"],
+  "query_names": ["limit", "include"],
+  "headers": {
+    "User-Agent": "python-requests/2.34.2",
+    "Accept-Encoding": "gzip, deflate, zstd",
+    "Accept": "*/*",
+    "Connection": "<masked>",
+    "X-Request-Id": "<masked>"
+  },
+  "req_body": "<masked>",
+  "resp_headers": {
+    "Server": "<masked>",
+    "Date": "<masked>",
+    "content-type": "application/json"
+  },
+  "resp_body": "{\"id\": \"<masked>\", \"customer\": {\"name\": \"<masked>\", \"email\": \"<masked>\"}, \"iban\": \"<masked>\", \"amount\": \"<masked>\", \"paid\": false}",
+  "novel": true,
+  "resp_value_types": {
+    "id": "uuid",
+    "customer.name": "free_text",
+    "customer.email": "email",
+    "iban": "iban",
+    "amount": "decimal_amount"
+  },
+  "source": "python-requests",
+  "duration": 2
+}
+```
+
+Reading it:
+
+- **No original value appears anywhere**, including in the URL: the path is
+  templated (`1042` becomes `{id}`) and query *values* are masked while their
+  names survive. `paid: true` masked to `false` because a boolean's masked form
+  is `false`, not because the value was read.
+- **`key_paths` and `resp_key_paths` are names only.** They are what you review
+  in the Request Types editor, and what a `field_rules` entry addresses.
+- **`novel: true` and `sdk_rule_version: "0"`** say no approved rules were in
+  effect, which is why everything is masked. Once you approve the fingerprint
+  with `keep` rules, the kept scalars appear here verbatim - that is the point
+  of the review step, and the only way a real value ever reaches Stubsmith.
+- **`resp_value_types` reports recognizable formats, not content.** `"iban"`
+  means the string parsed as an IBAN. Character composition is never inspected,
+  so no label is derived from the value beyond its format.
+- **`sdk_masked: true`** is what the ingest service requires; a payload without
+  it is rejected with `400 sdk_required`, so an unmasked body cannot be posted
+  through this endpoint at all.
+
+To see this for your own traffic before pointing the SDK at Stubsmith, run
+`python -m http.server`-style ingest of your own: set
+`url="http://127.0.0.1:PORT/v1/captures"` and log what arrives.
 
 ---
 
@@ -158,9 +352,8 @@ requests.post("https://api.example.com/rpc", json={"action": "delete_user", "use
 # → fingerprint B  (action=delete_user) - separate review, separate rules
 ```
 
-See [`docs/fingerprint-value-discrimination.md`](../../docs/fingerprint-value-discrimination.md)
-for a full walkthrough including the hash mechanics, all three configuration methods,
-and the privacy guarantees.
+See the [fingerprinting documentation](https://docs.stubsmith.dev/) for the
+hash mechanics, all three configuration methods, and the privacy guarantees.
 
 ---
 
@@ -272,6 +465,13 @@ works against a recording.  The same salt and value always produce the same
 placeholder, which preserves uniqueness and cross-field references. The salt
 never leaves the process.
 
+The salt only affects fields that carry a semantic type hint, and those hints
+come from an approved fingerprint's `field_rules`. Before a fingerprint has been
+reviewed the capture reports `sdk_rule_version: 0`, no field has a type hint,
+and every masked value is the constant form no matter what the salt is set to.
+Setting a salt and seeing `"<masked>"` therefore means "not approved yet", not
+"salt ignored".
+
 Two types are never format-preserved, regardless of salt: `currency_code` and
 `country_code`.  Booleans are refused for the same reason.  Their domains are
 small enough that a keyed hash could be reversed with a lookup table.  Use
@@ -301,6 +501,24 @@ masked with no way to discover why. **This changes the fingerprint** of any
 request or response containing arrays whose elements differ in shape: those
 endpoints reappear in the review queue as novel and need approving once more.
 Approvals for every other endpoint are unaffected.
+
+**A prepared request sent with `Session.send()` is now captured.** Only
+`Session.request` was patched, so a caller that built its own `PreparedRequest`
+was silently invisible: no error, no fingerprint. Both entry points are patched
+now, with capture in the outermost frame only, so a single call still produces
+exactly one capture and a redirect chain still produces one.
+
+**`install()` accepts `flush_timeout`.** It was settable only by constructing
+`StubSmith` directly or through `$STUBSMITH_FLUSH_TIMEOUT`, which a process that
+does not control its own environment could not use.
+
+**New: `stubsmith.is_installed()`.** A supported way to assert that capture is
+armed, instead of guessing at which attribute the patch replaced.
+
+**Documented: what gets patched, both egress hosts, both thread names, argument
+versus environment precedence, and an annotated capture payload.** The README
+previously said masking was applied server-side, which is the opposite of what
+the SDK does.
 
 **Process exit no longer waits on an unreachable ingest host.** The at-exit
 flush had the same five-second budget as an explicit `flush()`, so a short-lived

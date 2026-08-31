@@ -40,6 +40,31 @@ from ._version import __version__
 
 logger = logging.getLogger("stubsmith")
 
+# Both Session.request and Session.send are patched, and request() calls send()
+# internally, so without a guard one call would be captured twice. send() also
+# re-enters itself once per redirect hop (resolve_redirects calls
+# self.send(..., allow_redirects=False)), which cannot be told apart from a
+# caller who simply passed allow_redirects=False. A per-thread flag set for the
+# duration of the outermost patched call solves both: only the outermost frame
+# captures, and every nested one delegates untouched.
+_requests_capture_state = threading.local()
+
+
+class _outermost_capture:
+    """Context manager that is truthy only in the outermost patched frame."""
+
+    __slots__ = ("_claimed",)
+
+    def __enter__(self) -> bool:
+        self._claimed = not getattr(_requests_capture_state, "active", False)
+        if self._claimed:
+            _requests_capture_state.active = True
+        return self._claimed
+
+    def __exit__(self, *exc_info: Any) -> None:
+        if self._claimed:
+            _requests_capture_state.active = False
+
 _DEFAULT_URL          = "https://ingest.stubsmith.dev/v1/captures"
 _DEFAULT_BACKEND_URL  = "https://app.stubsmith.dev/api"
 _DEFAULT_TIMEOUT      = 5          # seconds for ingest POST
@@ -251,7 +276,7 @@ class StubSmith:
     # ------------------------------------------------------------------
 
     def instrument_requests(self) -> None:
-        """Patch ``requests.sessions.Session.request`` (idempotent)."""
+        """Patch ``requests.sessions.Session.request`` and ``.send`` (idempotent)."""
         if self._patched_requests:
             return
         try:
@@ -281,9 +306,14 @@ class StubSmith:
                 req_body = ""
                 req_headers = {}
 
-            t0 = time.monotonic()
-            response = _original(session, method, url, **kwargs)
-            duration_ms = int((time.monotonic() - t0) * 1000)
+            with _outermost_capture() as outermost:
+                t0 = time.monotonic()
+                response = _original(session, method, url, **kwargs)
+                duration_ms = int((time.monotonic() - t0) * 1000)
+                if not outermost:
+                    # Nested inside another patched call, which will capture
+                    # this exchange itself.
+                    return response
 
             # Resolve the URL that was actually put on the wire so that
             # query parameter names from params= are included in the
@@ -306,8 +336,55 @@ class StubSmith:
             _client._capture_requests(method, wire_url, req_headers, req_body, response, duration_ms)
             return response
 
+        _original_send = (
+            getattr(_rs.Session, "_stubsmith_original_send", None) or _rs.Session.send
+        )
+
+        def _patched_send(session, request, **kwargs):  # type: ignore[override]
+            """Capture a caller who prepared the request itself.
+
+            ``Session.request`` routes through here, and so does every redirect
+            hop, so only the outermost frame captures. A caller reaching
+            ``send()`` directly - which bypasses ``Session.request`` entirely
+            and was therefore never captured before - is that outermost frame.
+            """
+            with _outermost_capture() as outermost:
+                t0 = time.monotonic()
+                response = _original_send(session, request, **kwargs)
+                duration_ms = int((time.monotonic() - t0) * 1000)
+                if not outermost:
+                    return response
+
+            # A PreparedRequest is post-prepare, so unlike the request() path
+            # there is nothing to infer: the URL carries merged params and the
+            # headers carry the body-derived Content-Type.
+            try:
+                req_headers = dict(request.headers or {})
+                req_body = _prepared_request_body(request)
+                wire_url = str(request.url)
+            except Exception:
+                return response
+
+            try:
+                if response.history:
+                    wire_url = str(response.history[0].request.url)
+            except Exception:
+                pass
+
+            _client._capture_requests(
+                str(getattr(request, "method", "") or ""),
+                wire_url,
+                req_headers,
+                req_body,
+                response,
+                duration_ms,
+            )
+            return response
+
         _rs.Session._stubsmith_original_request = _original  # type: ignore[attr-defined]
         _rs.Session.request = _patched  # type: ignore[method-assign]
+        _rs.Session._stubsmith_original_send = _original_send  # type: ignore[attr-defined]
+        _rs.Session.send = _patched_send  # type: ignore[method-assign]
         self._patched_requests = True
 
     def instrument_httpx(self) -> None:
@@ -364,6 +441,10 @@ class StubSmith:
             if orig is not None:
                 _rs.Session.request = orig  # type: ignore[method-assign]
                 del _rs.Session._stubsmith_original_request  # type: ignore[attr-defined]
+            orig_send = getattr(_rs.Session, "_stubsmith_original_send", None)
+            if orig_send is not None:
+                _rs.Session.send = orig_send  # type: ignore[method-assign]
+                del _rs.Session._stubsmith_original_send  # type: ignore[attr-defined]
         except ImportError:
             pass
         self._patched_requests = False
@@ -736,6 +817,31 @@ def _safe_extract_request_body(kwargs: Dict[str, Any]) -> str:
         if json_val is not None:
             return json.dumps(json_val)
 
+        return ""
+    except Exception:
+        return ""
+
+
+def _prepared_request_body(request: Any) -> str:
+    """
+    Read the body off a ``PreparedRequest`` without consuming it.
+
+    ``prepare_body`` has already run, so a form payload is form-encoded and a
+    ``json=`` payload is JSON: there is nothing to re-serialise, unlike the
+    kwargs seen by :func:`_safe_extract_request_body`.
+
+    A body that is neither ``str`` nor ``bytes`` is a generator or a file object
+    (a streaming or multipart upload) and yields "" rather than being read,
+    which would leave the outgoing request with nothing to send.
+    """
+    try:
+        body = getattr(request, "body", None)
+        if body is None:
+            return ""
+        if isinstance(body, str):
+            return body
+        if isinstance(body, (bytes, bytearray)):
+            return body.decode("utf-8", errors="replace")
         return ""
     except Exception:
         return ""
