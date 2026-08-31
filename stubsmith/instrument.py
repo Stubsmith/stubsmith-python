@@ -33,6 +33,7 @@ def install(
     max_body_bytes: int = 64 * 1024,
     sample_rate: float = 1.0,
     queue_maxsize: int = 1000,
+    flush_timeout: Optional[float] = None,
     backend_url: Optional[str] = None,
     rules_poll_interval: float = 60.0,
     wait_for_rules: float = 0,
@@ -56,7 +57,8 @@ def install(
     revived in the child, so ``install()`` in a pre-fork master (``gunicorn
     --preload``, uWSGI, Celery) still captures in every worker.
 
-    Parameters mirror :class:`StubSmith.__init__`, plus:
+    Parameters mirror :class:`StubSmith.__init__` (including *flush_timeout*,
+    *backend_url* and *rules_poll_interval*), plus:
 
     wait_for_rules:
         Seconds to block waiting for the first successful rules-cache sync
@@ -95,6 +97,7 @@ def install(
         max_body_bytes=max_body_bytes,
         sample_rate=sample_rate,
         queue_maxsize=queue_maxsize,
+        flush_timeout=flush_timeout,
         backend_url=backend_url,
         rules_poll_interval=rules_poll_interval,
     )
@@ -109,3 +112,24 @@ def install(
     with _install_lock:
         _installed = (os.getpid(), client)
     return client
+
+
+def is_installed() -> bool:
+    """
+    Return ``True`` when this process has a live StubSmith client installed.
+
+    Written for the check every integration wants to make - "is capture
+    actually armed?" - without reaching for the patched attributes, which are
+    private and easy to assert on wrongly.  ``requests.request`` and
+    ``requests.get`` are *not* patched (they construct a ``Session`` and call
+    the patched ``Session.request``), so an assertion against those reports a
+    working install as broken.
+
+    ``False`` after :meth:`StubSmith.close`, and in a child whose client could
+    not be revived after a ``fork()``.
+    """
+    with _install_lock:
+        if _installed is None:
+            return False
+        _, client = _installed
+    return client._worker.is_alive() and not client._stop.is_set()

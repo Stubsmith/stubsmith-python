@@ -65,7 +65,7 @@ free of the optional ``responses`` dependency.
 
 from .client import StubSmith, _DEFAULT_URL as DEFAULT_INGEST_URL, _DEFAULT_BACKEND_URL as DEFAULT_API_URL
 from .fixtures import Fixture, FixtureBundle, fixtures, fixtures_bundle
-from .instrument import install
+from .instrument import install, is_installed
 from .privacy.pipeline import PrivacyPipeline
 from .replay import ReplayContext, StubNotFound, replay
 
@@ -78,6 +78,7 @@ __all__ = [
     "fixtures",
     "fixtures_bundle",
     "install",
+    "is_installed",
     "PrivacyPipeline",
     "ReplayContext",
     "StubNotFound",

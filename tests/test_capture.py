@@ -1035,6 +1035,165 @@ def test_flush_still_drains_a_healthy_queue():
 
 
 # ---------------------------------------------------------------------------
+# Session.send: a caller that prepares its own request
+#
+# Session.request routes through send(), and send() re-enters itself once per
+# redirect hop, so the patch has to capture in the outermost frame only. A
+# caller reaching send() directly bypasses request() entirely and was invisible
+# before.
+# ---------------------------------------------------------------------------
+
+@responses_lib.activate
+def test_prepared_request_sent_through_send_is_captured():
+    responses_lib.add(
+        responses_lib.POST,
+        "https://api.example.com/orders",
+        json={"id": 7},
+        status=201,
+    )
+
+    client, sink = make_client()
+    client.instrument_requests()
+    try:
+        session = requests.Session()
+        prepared = session.prepare_request(
+            requests.Request(
+                "POST",
+                "https://api.example.com/orders",
+                json={"item": "widget"},
+                headers={"X-Tenant": "acme"},
+            )
+        )
+        resp = session.send(prepared)
+        assert resp.status_code == 201
+
+        payloads = sink.wait_for(1)
+        assert len(payloads) == 1, payloads
+        p = payloads[0]
+        assert p["method"] == "POST"
+        assert "/orders" in p["path"]
+        assert "item" in p["req_body"], "the prepared body was not captured"
+        assert "widget" not in p["req_body"], "the value must be masked"
+        assert "X-Tenant" in p["headers"] or "x-tenant" in {k.lower() for k in p["headers"]}
+    finally:
+        client.uninstrument()
+        client.close()
+
+
+@responses_lib.activate
+def test_a_single_call_is_captured_once_not_twice():
+    """request() calls send(), and both are patched."""
+    responses_lib.add(
+        responses_lib.GET, "https://api.example.com/ping", json={"ok": True}, status=200,
+    )
+
+    client, sink = make_client()
+    client.instrument_requests()
+    try:
+        requests.get("https://api.example.com/ping")
+        payloads = sink.wait_for(1)
+        time.sleep(0.15)  # give a duplicate time to arrive
+        assert len(payloads) == 1, payloads
+    finally:
+        client.uninstrument()
+        client.close()
+
+
+@responses_lib.activate
+def test_a_redirect_chain_is_captured_once():
+    """resolve_redirects calls self.send() per hop; each hop must not capture."""
+    responses_lib.add(
+        responses_lib.GET,
+        "https://api.example.com/old",
+        status=302,
+        headers={"Location": "https://api.example.com/new"},
+    )
+    responses_lib.add(
+        responses_lib.GET, "https://api.example.com/new", json={"ok": True}, status=200,
+    )
+
+    client, sink = make_client()
+    client.instrument_requests()
+    try:
+        resp = requests.get("https://api.example.com/old")
+        assert resp.status_code == 200
+        assert len(resp.history) == 1
+        payloads = sink.wait_for(1)
+        time.sleep(0.15)
+        assert len(payloads) == 1, payloads
+        # The capture describes the request the caller made, not the hop it
+        # landed on, matching the httpx instrumentation.
+        assert "/old" in payloads[0]["path"]
+    finally:
+        client.uninstrument()
+        client.close()
+
+
+@responses_lib.activate
+def test_a_streaming_body_is_not_consumed_by_the_send_patch():
+    """Reading a generator body in order to capture it would leave the real
+    request with nothing to send. The invariant is that instrumenting changes
+    nothing about how much of the body is pulled, so the uninstrumented call is
+    the baseline rather than a hard-coded expectation about the transport."""
+    responses_lib.add(
+        responses_lib.POST, "https://api.example.com/upload", json={}, status=200,
+    )
+    responses_lib.add(
+        responses_lib.POST, "https://api.example.com/upload", json={}, status=200,
+    )
+
+    def send_one():
+        pulled: List[bytes] = []
+
+        def chunks():
+            for part in (b"part-one", b"part-two"):
+                pulled.append(part)
+                yield part
+
+        session = requests.Session()
+        prepared = session.prepare_request(
+            requests.Request("POST", "https://api.example.com/upload", data=chunks())
+        )
+        session.send(prepared)
+        return pulled, prepared
+
+    baseline_pulled, _ = send_one()
+
+    client, sink = make_client()
+    client.instrument_requests()
+    try:
+        instrumented_pulled, prepared = send_one()
+        payloads = sink.wait_for(1)
+        assert payloads[0]["req_body"] in ("", "<masked>"), payloads[0]["req_body"]
+        assert instrumented_pulled == baseline_pulled, (
+            f"instrumentation changed body consumption: "
+            f"{instrumented_pulled!r} vs baseline {baseline_pulled!r}"
+        )
+        # The body is still whatever requests put there, not a string the SDK
+        # substituted while reading it.
+        assert not isinstance(prepared.body, (str, bytes, bytearray))
+    finally:
+        client.uninstrument()
+        client.close()
+
+
+def test_uninstrument_restores_both_patch_points():
+    original_request = requests.Session.request
+    original_send = requests.Session.send
+
+    client, _ = make_client()
+    client.instrument_requests()
+    assert requests.Session.request is not original_request
+    assert requests.Session.send is not original_send
+    client.uninstrument()
+    try:
+        assert requests.Session.request is original_request
+        assert requests.Session.send is original_send
+    finally:
+        client.close()
+
+
+# ---------------------------------------------------------------------------
 # install() idempotency and fork safety
 #
 # install() is called from application startup, but plugin registries and
@@ -1088,6 +1247,54 @@ def test_install_after_close_builds_a_new_client():
         assert second._worker.is_alive()
     finally:
         second.close()
+
+
+def test_install_forwards_flush_timeout():
+    """install() is the documented integration point, so every StubSmith
+    setting has to be reachable through it. flush_timeout was reachable only by
+    constructing StubSmith directly or by setting an environment variable, which
+    a process that cannot control its own environment (an embedded plugin, a
+    managed worker) has no way to do."""
+    import stubsmith
+
+    client = stubsmith.install(
+        url="http://stubsmith.test/v1/captures", api_key="sk-test", flush_timeout=0,
+    )
+    try:
+        assert client.flush_timeout == 0.0
+    finally:
+        client.close()
+
+
+def test_is_installed_tracks_the_live_client():
+    import stubsmith
+
+    assert stubsmith.is_installed() is False
+    client = stubsmith.install(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+    try:
+        assert stubsmith.is_installed() is True
+    finally:
+        client.close()
+    assert stubsmith.is_installed() is False
+
+
+def test_is_installed_holds_where_the_module_level_helpers_do_not():
+    """The obvious hand-rolled check - has requests.request been replaced? -
+    reports a working install as broken, because only Session.request is
+    patched and requests.request routes through a fresh Session. is_installed()
+    exists so nobody has to know that."""
+    import requests
+    import stubsmith
+
+    unpatched_helper = requests.request
+    client = stubsmith.install(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+    try:
+        assert requests.request is unpatched_helper
+        assert requests.get.__module__ == "requests.api"
+        assert hasattr(requests.Session, "_stubsmith_original_request")
+        assert stubsmith.is_installed() is True
+    finally:
+        client.close()
 
 
 @pytest.mark.skipif(
