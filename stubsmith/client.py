@@ -31,6 +31,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import weakref
 from collections.abc import Mapping
 from typing import Any, Callable, Dict, Optional
 
@@ -164,6 +165,8 @@ class StubSmith:
         # a total is sufficient and a stale read costs at most one poll interval.
         self._send_failures = 0
 
+        self._queue_maxsize = queue_maxsize
+        self._rules_cache_needs_restart = False
         self._queue: queue.Queue[Dict[str, Any]] = queue.Queue(maxsize=queue_maxsize)
         self._stop = threading.Event()
         self._worker = threading.Thread(target=self._drain, daemon=True, name="stubsmith-sender")
@@ -171,6 +174,25 @@ class StubSmith:
 
         self.flush_timeout = _resolve_flush_timeout(flush_timeout)
         atexit.register(self.flush, timeout=self.flush_timeout)
+
+        # fork() copies only the calling thread, so a child inherits a dead
+        # sender, a dead rules-cache poller, and a queue nothing will drain.
+        # Under gunicorn --preload, uWSGI or Celery -- where install() runs in
+        # the master and workers are forked -- every capture in every worker
+        # would be enqueued and silently lost. Re-arm in the child instead.
+        #
+        # The hook holds a weak reference: os.register_at_fork has no
+        # unregister, so a strong one would keep every client that was ever
+        # constructed alive for the life of the process.
+        if hasattr(os, "register_at_fork"):          # absent on Windows
+            _self = weakref.ref(self)
+
+            def _after_fork_in_child() -> None:
+                obj = _self()
+                if obj is not None:
+                    obj._reinit_after_fork()
+
+            os.register_at_fork(after_in_child=_after_fork_in_child)
 
         self._patched_requests = False
         self._patched_httpx_sync = False
@@ -423,6 +445,27 @@ class StubSmith:
         except Exception:
             return False
 
+    def _reinit_after_fork(self) -> None:
+        """Restart the background machinery in a freshly forked child.
+
+        The inherited queue is discarded rather than resent: the parent holds
+        the same items and its own sender is still running, so draining the
+        child's copy would deliver every pending capture twice.
+        """
+        self._queue = queue.Queue(maxsize=self._queue_maxsize)
+        self._send_failures = 0
+        self._stop = threading.Event()
+        self._worker = threading.Thread(
+            target=self._drain, daemon=True, name="stubsmith-sender"
+        )
+        self._worker.start()
+        # The rules cache is restarted lazily, on the next capture, rather than
+        # here. Starting its poll thread from inside the at-fork handler
+        # segfaults the child: the cache's lock can be held by the poller at the
+        # moment of the fork, and the child inherits it locked with no owner.
+        # Deferring means the restart happens on an ordinary call stack.
+        self._rules_cache_needs_restart = self._rules_cache is not None
+
     def close(self) -> None:
         """Flush, stop the rules cache, and stop the background worker."""
         atexit.unregister(self.flush)
@@ -523,6 +566,16 @@ class StubSmith:
         the legacy raw payload is returned - this preserves backward
         compatibility for the disabled/no-api-key case.
         """
+        if self._rules_cache_needs_restart:
+            # Set by _reinit_after_fork. start() is idempotent and revives a
+            # thread that died with the fork.
+            self._rules_cache_needs_restart = False
+            try:
+                if self._rules_cache is not None:
+                    self._rules_cache.start()
+            except Exception:
+                pass
+
         if self._pipeline is not None:
             result = self._pipeline.process(
                 method=method,
