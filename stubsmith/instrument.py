@@ -7,9 +7,21 @@ Importing this module does nothing by itself; call ``install()`` or use the
 
 from __future__ import annotations
 
-from typing import Optional
+import os
+import threading
+from typing import Optional, Tuple
 
 from .client import StubSmith
+
+# The client installed in this process, with the pid it was created under.
+# install() is called from application startup, but also from plugin registries
+# and framework hooks that can fire more than once per process; without this,
+# each call built another client with its own sender thread, rules-cache poller,
+# atexit hook and 60-second backend poll. The captures were never duplicated
+# (the patch re-wraps the original, not the wrapper) but the threads accumulated,
+# and every client except the most recent one was inert while still polling.
+_installed: Optional[Tuple[int, StubSmith]] = None
+_install_lock = threading.Lock()
 
 
 def install(
@@ -34,8 +46,15 @@ def install(
         import stubsmith
         stubsmith.install(api_key="sk-...")
 
-    Both ``requests`` and ``httpx`` patching are idempotent; calling
-    ``install()`` twice returns a second client but does not double-patch.
+    Idempotent: calling ``install()`` again returns the client already
+    installed in this process rather than building another one, so repeated
+    calls from plugin registries or framework hooks cannot accumulate threads.
+    Arguments are ignored on those subsequent calls; to reconfigure, call
+    ``close()`` on the existing client first.
+
+    Fork-safe: a client whose background threads died with a ``fork()`` is
+    revived in the child, so ``install()`` in a pre-fork master (``gunicorn
+    --preload``, uWSGI, Celery) still captures in every worker.
 
     Parameters mirror :class:`StubSmith.__init__`, plus:
 
@@ -55,6 +74,19 @@ def install(
         unreachable the function returns after the timeout rather than
         hanging.  It never raises.
     """
+    global _installed
+
+    with _install_lock:
+        if _installed is not None:
+            _, existing = _installed
+            # A live sender that has not been stopped means the client is
+            # usable, including in a child whose threads were revived after a
+            # fork. close() sets the stop event, so a closed client is replaced
+            # rather than handed back inert.
+            if existing._worker.is_alive() and not existing._stop.is_set():
+                _installed = (os.getpid(), existing)
+                return existing
+
     client = StubSmith(
         url=url,
         api_key=api_key,
@@ -73,4 +105,7 @@ def install(
             client._rules_cache.wait_for_first_sync(timeout=wait_for_rules)
         except Exception:
             pass
+
+    with _install_lock:
+        _installed = (os.getpid(), client)
     return client

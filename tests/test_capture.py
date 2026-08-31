@@ -9,6 +9,8 @@ so no real network is used.
 from __future__ import annotations
 
 import logging
+import os
+import sys
 import time
 import threading
 import urllib.error
@@ -1030,3 +1032,148 @@ def test_flush_still_drains_a_healthy_queue():
     client.flush(timeout=5.0)
     client.close()
     assert len(sink.wait_for(20)) == 20
+
+
+# ---------------------------------------------------------------------------
+# install() idempotency and fork safety
+#
+# install() is called from application startup, but plugin registries and
+# framework hooks can fire it repeatedly in one process. Each call used to build
+# another client with its own sender thread, rules-cache poller, atexit hook and
+# 60-second backend poll; captures were never duplicated, but the threads
+# accumulated and every client except the most recent was inert while still
+# polling.
+# ---------------------------------------------------------------------------
+
+def test_repeated_install_returns_one_client():
+    import stubsmith
+
+    first = stubsmith.install(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+    try:
+        for _ in range(4):
+            assert stubsmith.install(url="http://other.test/v1/captures", api_key="sk-x") is first
+    finally:
+        first.close()
+
+
+def test_repeated_install_does_not_accumulate_threads():
+    import stubsmith
+
+    def sdk_threads():
+        return [t.name for t in threading.enumerate() if t.name.startswith("stubsmith-")]
+
+    baseline = len(sdk_threads())
+    client = stubsmith.install(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+    try:
+        after_first = len(sdk_threads())
+        for _ in range(4):
+            stubsmith.install(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+        assert len(sdk_threads()) == after_first, sdk_threads()
+        # Sanity: the first install really did start threads, so the assertion
+        # above is not comparing zero with zero.
+        assert after_first > baseline
+    finally:
+        client.close()
+
+
+def test_install_after_close_builds_a_new_client():
+    """A closed client must not be handed back inert."""
+    import stubsmith
+
+    first = stubsmith.install(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+    first.close()
+    second = stubsmith.install(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+    try:
+        assert second is not first
+        assert second._worker.is_alive()
+    finally:
+        second.close()
+
+
+@pytest.mark.skipif(
+    not hasattr(os, "fork") or sys.platform == "darwin",
+    reason=(
+        "fork() in a multi-threaded process is unsupported on macOS: the "
+        "Objective-C runtime aborts the child regardless of what the SDK does. "
+        "Linux is where forking servers actually run, so that is where this is "
+        "verified."
+    ),
+)
+def test_captures_are_delivered_after_fork(tmp_path):
+    """Threads do not survive fork(), so a child inherits a dead sender and a
+    queue nothing drains. Under `gunicorn --preload`, uWSGI or Celery, install()
+    runs in the master and every worker is forked, so without re-arming, every
+    capture in every worker is enqueued and silently lost.
+    """
+    receipt = tmp_path / "sent.log"
+
+    def send(payload):
+        with open(receipt, "a") as fh:
+            fh.write("sent\n")
+
+    client = StubSmith(
+        url="http://stubsmith.test/v1/captures", api_key="sk-test", _send_fn=send
+    )
+    try:
+        pid = os.fork()
+        if pid == 0:                                    # child
+            try:
+                client.enqueue({"probe": 1})
+                client.flush(timeout=5.0)
+            finally:
+                os._exit(0)
+
+        os.waitpid(pid, 0)
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline and not receipt.exists():
+            time.sleep(0.05)
+
+        assert receipt.exists(), "the forked child delivered nothing"
+        assert receipt.read_text().count("sent") == 1
+    finally:
+        client.close()
+
+
+@pytest.mark.skipif(
+    not hasattr(os, "fork") or sys.platform == "darwin",
+    reason="see test_captures_are_delivered_after_fork",
+)
+def test_forked_child_starts_with_an_empty_queue(tmp_path):
+    """The child inherits a copy of whatever was queued at fork time. The parent
+    still holds those items and its own sender is running, so draining the
+    child's copy would deliver each of them twice. The child therefore starts
+    from an empty queue."""
+    report = tmp_path / "qsize.txt"
+
+    # A send that blocks keeps items in the parent's queue across the fork.
+    gate = threading.Event()
+
+    def blocking_send(payload):
+        gate.wait(timeout=10)
+
+    client = StubSmith(
+        url="http://stubsmith.test/v1/captures",
+        api_key="sk-test",
+        _send_fn=blocking_send,
+    )
+    try:
+        for i in range(5):
+            client.enqueue({"probe": i})
+        time.sleep(0.2)  # let the sender pick up the first and block on it
+        queued_in_parent = client._queue.qsize()
+
+        pid = os.fork()
+        if pid == 0:
+            try:
+                report.write_text(str(client._queue.qsize()))
+            finally:
+                os._exit(0)
+
+        os.waitpid(pid, 0)
+        assert queued_in_parent > 0, "parent queue drained; the test proves nothing"
+        assert report.read_text() == "0", (
+            f"child inherited {report.read_text()} queued items and would resend them"
+        )
+    finally:
+        gate.set()
+        client.close()

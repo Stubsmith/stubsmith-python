@@ -141,6 +141,69 @@ class TestExtractKeypaths:
         assert parsed["secret"] == "<masked>", f"secret not masked: {parsed['secret']}"
 
 
+class TestArrayElementsAreAllWalked:
+    """Every element of an array contributes paths, not just the first.
+
+    Sampling element 0 lost the shape of any array whose first entry is a
+    scalar or null. The value was still masked, because the masker walks every
+    element, but the path never reached the review queue, so an operator could
+    not see the field and could never write a keep rule for it. It was masked
+    forever with no way to discover why.
+    """
+
+    def test_object_after_a_scalar_is_reported(self):
+        kp = extract_keypaths(json.dumps({"mixed": [1, {"deep": {"deeper": "x"}}]}))
+        assert "mixed.[].deep.deeper" in kp
+
+    def test_object_after_a_null_is_reported(self):
+        kp = extract_keypaths(json.dumps({"rows": [None, {"late": "x"}]}))
+        assert "rows.[].late" in kp
+
+    def test_paths_are_unioned_across_differing_elements(self):
+        kp = extract_keypaths(json.dumps({"rows": [{"a": 1}, {"b": 2}, {"c": 3}]}))
+        for path in ("rows.[].a", "rows.[].b", "rows.[].c"):
+            assert path in kp, f"{path} missing from {kp}"
+
+    def test_repeated_shapes_are_not_duplicated(self):
+        kp = extract_keypaths(json.dumps({"rows": [{"a": 1}, {"a": 2}, {"a": 3}]}))
+        assert kp.count("rows.[].a") == 1
+
+    def test_scalar_array_still_emits_the_bracket_leaf(self):
+        kp = extract_keypaths(json.dumps({"tags": ["a", "b"]}))
+        assert "tags.[]" in kp
+
+    def test_fingerprint_no_longer_depends_on_element_order(self):
+        """Sampling the first element made one logical endpoint fingerprint as
+        two, depending on which element happened to come first."""
+        a = json.dumps({"rows": [1, {"x": 1}]})
+        b = json.dumps({"rows": [{"x": 1}, 1]})
+        assert sorted(extract_keypaths(a)) == sorted(extract_keypaths(b))
+
+    def test_every_reported_path_is_one_the_masker_can_reach(self):
+        """The report and the masker must agree: a path shown to a reviewer
+        that no keep rule can match is a rule that silently does nothing."""
+        from stubsmith.privacy.field_rules import apply_field_rules, compile_field_rules
+
+        body = json.dumps({
+            "rows": [1, {"deep": {"deeper": "SECRET"}}],
+            "later": [None, {"late": "ALSO"}],
+        })
+        # Each path is checked against its own value: asserting that *either*
+        # token survived would let a rule on one path pass on the strength of
+        # the other.
+        for path, token, other in (
+            ("rows.[].deep.deeper", "SECRET", "ALSO"),
+            ("later.[].late", "ALSO", "SECRET"),
+        ):
+            assert path in extract_keypaths(body)
+            out, _, _ = apply_field_rules(
+                body, {}, "", "application/json",
+                compile_field_rules([{"path": "body." + path, "action": "keep"}]),
+            )
+            assert token in out, f"keep rule on {path} did nothing"
+            assert other not in out, f"masking leaked {other} while keeping {path}"
+
+
 class TestFingerprint:
     def test_stability_same_values_same_fp(self):
         body1 = json.dumps({"user": "alice", "age": 30})

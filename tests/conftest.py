@@ -33,6 +33,21 @@ _CLEARED = (
 
 
 @pytest.fixture(autouse=True)
+def _fresh_install_registry():
+    """Give every test the process-start view of install().
+
+    install() keeps the client it created so repeated calls cannot accumulate
+    threads. That state is per-process and would otherwise leak between tests,
+    letting one test receive a client another built.
+    """
+    from stubsmith import instrument
+
+    instrument._installed = None
+    yield
+    instrument._installed = None
+
+
+@pytest.fixture(autouse=True)
 def _no_network(monkeypatch):
     for var in _CLEARED:
         monkeypatch.delenv(var, raising=False)

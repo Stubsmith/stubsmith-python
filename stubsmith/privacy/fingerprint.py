@@ -451,7 +451,15 @@ def _walk(obj: Any, prefix: str) -> List[str]:
     Rules
     -----
     - Each dict key at every nesting level is emitted as a path.
-    - Arrays contribute a ``[]`` segment; only the first element is walked.
+    - Arrays contribute a ``[]`` segment, and *every* element is walked, with
+      the resulting paths unioned.  Sampling only the first element loses the
+      shape of any array whose first entry is a scalar or ``null``: for
+      ``[1, {"deep": {"deeper": 1}}]`` the path ``deep.deeper`` would never be
+      reported, so a reviewer could not see the field and could never write a
+      keep rule for it, leaving it permanently masked.  It also made the
+      fingerprint depend on element order, splitting one logical endpoint into
+      several.  ``_walk_and_mask`` walks every element, so this keeps the paths
+      that are reported in step with the paths that can actually be masked.
     - Scalar arrays emit the ``[]`` segment itself as a leaf (e.g. ``items.[]``
       for ``{"items": [1, 2, 3]}``), mirroring the path used by
       ``_walk_and_mask`` so that a reviewer keep rule on ``items.[]`` actually
@@ -466,10 +474,17 @@ def _walk(obj: Any, prefix: str) -> List[str]:
             paths.extend(_walk(val, full))
     elif isinstance(obj, list) and obj:
         arr_prefix = f"{prefix}.[]" if prefix else "[]"
-        first = obj[0]
-        if isinstance(first, (dict, list)):
-            paths.extend(_walk(first, arr_prefix))
-        else:
+        seen = set()
+        has_scalar = False
+        for element in obj:
+            if isinstance(element, (dict, list)):
+                for path in _walk(element, arr_prefix):
+                    if path not in seen:
+                        seen.add(path)
+                        paths.append(path)
+            else:
+                has_scalar = True
+        if has_scalar and arr_prefix not in seen:
             # Scalar array: emit the [] segment as the leaf path so that
             # a keep rule on e.g. "body.items.[]" matches in _walk_and_mask.
             paths.append(arr_prefix)
@@ -491,7 +506,10 @@ def _walk_values(obj: Any, prefix: str, result: Dict[str, str]) -> None:
     """Recursively collect (path, type) pairs for every typeable scalar leaf.
 
     Mirrors the path structure of :func:`_walk`: dict keys joined with ``.``,
-    arrays contribute a ``[]`` segment with only the first element walked.
+    arrays contribute a ``[]`` segment and every element is walked.  Where
+    elements of one array disagree on a scalar's type the last typeable one
+    wins, matching how the dict branch and the server both resolve a repeated
+    path.
     Booleans and ``None`` are skipped (not typed per spec).  Never raises.
     """
     if isinstance(obj, dict):
@@ -505,10 +523,10 @@ def _walk_values(obj: Any, prefix: str, result: Dict[str, str]) -> None:
                     result[full] = label
     elif isinstance(obj, list) and obj:
         arr_prefix = f"{prefix}.[]" if prefix else "[]"
-        first = obj[0]
-        if isinstance(first, (dict, list)):
-            _walk_values(first, arr_prefix, result)
-        else:
-            label = classify_scalar(first)
-            if label is not None:
-                result[arr_prefix] = label
+        for element in obj:
+            if isinstance(element, (dict, list)):
+                _walk_values(element, arr_prefix, result)
+            else:
+                label = classify_scalar(element)
+                if label is not None:
+                    result[arr_prefix] = label

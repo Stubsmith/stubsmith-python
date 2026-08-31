@@ -87,6 +87,20 @@ client.uninstrument()
 | `queue_maxsize`  | `1000`                         | Bound on the background queue; excess items are dropped       |
 | `flush_timeout`  | `$STUBSMITH_FLUSH_TIMEOUT` / `1.0` (seconds) | How long process exit waits for queued captures to drain. `0` disables the wait |
 
+### install() is idempotent and fork-safe
+
+Calling `install()` again returns the client already installed in this process
+rather than building another one, so a plugin registry or framework hook that
+fires repeatedly cannot accumulate threads. Arguments are ignored on those
+subsequent calls; call `close()` on the existing client first to reconfigure.
+
+`fork()` copies only the calling thread, so a forked child would otherwise
+inherit a dead sender and a queue nothing drains. The client re-arms itself in
+the child, which is what makes `install()` in a pre-fork master work: `gunicorn
+--preload`, uWSGI and Celery all capture in every worker. The child starts from
+an empty queue, because the parent still holds anything that was pending at the
+moment of the fork and will send it itself.
+
 ### An outage cannot block your application
 
 Captures are masked on the calling thread (CPU only, no I/O) and handed to a
@@ -262,6 +276,38 @@ Two types are never format-preserved, regardless of salt: `currency_code` and
 `country_code`.  Booleans are refused for the same reason.  Their domains are
 small enough that a keyed hash could be reversed with a lookup table.  Use
 `action: keep` for those fields instead - they are rarely sensitive.
+
+---
+
+## Changelog
+
+### 0.2.0
+
+**Captures are no longer lost in forked workers.** Threads do not survive
+`fork()`, so a child inherited a dead sender and a queue nothing would drain:
+under `gunicorn --preload`, uWSGI or Celery, where `install()` runs in a master
+and workers are forked, every capture in every worker was enqueued and silently
+discarded. The client now re-arms itself in the child.
+
+**`install()` is idempotent.** It returns the client already installed in this
+process instead of building another one. Previously each call added a sender
+thread, a rules-cache poller, an `atexit` hook and a 60-second backend poll,
+and left every client but the most recent inert while still polling.
+
+**Key paths are reported from every array element, not just the first.** For an
+array whose first entry is a scalar or `null`, the shape of the objects after it
+was never reported, so those fields could not be given a keep rule and stayed
+masked with no way to discover why. **This changes the fingerprint** of any
+request or response containing arrays whose elements differ in shape: those
+endpoints reappear in the review queue as novel and need approving once more.
+Approvals for every other endpoint are unaffected.
+
+**Process exit no longer waits on an unreachable ingest host.** The at-exit
+flush had the same five-second budget as an explicit `flush()`, so a short-lived
+script or serverless invocation paid it in full whenever Stubsmith was
+unreachable. The budget is now one second, configurable with
+`flush_timeout` or `$STUBSMITH_FLUSH_TIMEOUT`, and abandoned as soon as a send
+fails.
 
 ---
 
