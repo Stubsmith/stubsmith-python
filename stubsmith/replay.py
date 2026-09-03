@@ -101,7 +101,7 @@ import http.client
 import json
 import os
 import pathlib
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 from ._replay_state import enter_replay, exit_replay
@@ -714,6 +714,76 @@ def _build_index(  # noqa: C901
 # Variant selection
 # ---------------------------------------------------------------------------
 
+def _flatten_responses(variants: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Expand *variants* into a flat, ordered list of individual responses.
+
+    A bundle variant is one response status. When the bundle was fetched with
+    ``samples>1`` the variant also carries a ``samples`` array holding that
+    status's rolling window, newest first, and each entry is a distinct
+    recording with its own body. This flattens both dimensions into the unit a
+    caller actually iterates: one recorded response.
+
+    Order is deliberate and stable:
+
+    1. The variant :func:`_select_variant` would have chosen comes first, with
+       its newest sample at index 0. That makes ``replay_all()``'s first pass
+       serve exactly what plain ``replay()`` serves, so a test that passes
+       under ``replay()`` still passes on pass one.
+    2. Remaining variants follow, ordered by status, so a 200 is exercised
+       before a 500 and the order does not shift between runs.
+    3. Within a variant, samples stay in bundle order (newest first).
+
+    Each returned dict is shaped for :func:`_build_response` (``status``,
+    ``headers``, ``body``, ``duration_ms``) plus, when the bundle supplied
+    them, ``capture_id`` and ``captured_at`` identifying the recording.
+    """
+    if not variants:
+        return []
+
+    primary = _select_variant(variants)
+    ordered: List[Dict[str, Any]] = []
+    if primary is not None:
+        ordered.append(primary)
+    ordered.extend(
+        sorted(
+            (v for v in variants if v is not primary),
+            key=lambda v: v.get("status", 0),
+        )
+    )
+
+    responses: List[Dict[str, Any]] = []
+    for variant in ordered:
+        status = variant.get("status", 200)
+        count = variant.get("count", 1)
+        samples = variant.get("samples")
+        if not samples:
+            # samples=1 bundle (or a pre-samples server): the variant is the
+            # only recording of this status.
+            responses.append({
+                "status": status,
+                "count": count,
+                "duration_ms": variant.get("duration_ms"),
+                "headers": variant.get("headers") or {},
+                "body": variant.get("body"),
+                "capture_id": None,
+                "captured_at": None,
+                "body_capped": bool(variant.get("body_capped")),
+            })
+            continue
+        for sample in samples:
+            responses.append({
+                "status": status,
+                "count": count,
+                "duration_ms": sample.get("duration_ms", variant.get("duration_ms")),
+                "headers": sample.get("headers") or variant.get("headers") or {},
+                "body": sample.get("body"),
+                "capture_id": sample.get("capture_id"),
+                "captured_at": sample.get("captured_at"),
+                "body_capped": bool(sample.get("body_capped")),
+            })
+    return responses
+
+
 def _select_variant(variants: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """Select the best variant deterministically.
 
@@ -804,6 +874,120 @@ def _build_response(request: Any, variant: Dict[str, Any]) -> Any:
     return response
 
 
+class ServedResponse:
+    """One recorded response that a replay context served.
+
+    Yielded through :meth:`ReplayContext.served` so a test can assert on what
+    it actually exercised rather than assuming.
+    """
+
+    __slots__ = ("domain", "method", "path_template", "fingerprint",
+                 "status", "capture_id", "captured_at", "index", "total")
+
+    def __init__(
+        self,
+        domain: str,
+        method: str,
+        path_template: str,
+        fingerprint: str,
+        status: int,
+        capture_id: Optional[str],
+        captured_at: Optional[str],
+        index: int,
+        total: int,
+    ) -> None:
+        self.domain = domain
+        self.method = method
+        self.path_template = path_template
+        self.fingerprint = fingerprint
+        self.status = status
+        self.capture_id = capture_id
+        self.captured_at = captured_at
+        #: Position of this response in its stub's recorded list.
+        self.index = index
+        #: How many responses that stub has recorded in total.
+        self.total = total
+
+    @property
+    def endpoint(self) -> str:
+        """``"GET api.example.com/v1/orders/{id}"`` - for test ids and messages."""
+        return f"{self.method} {self.domain}{self.path_template}"
+
+    @property
+    def exhausted(self) -> bool:
+        """True when this was the last recorded response for its stub.
+
+        A stub with fewer responses than the current pass number keeps serving
+        its final recording, so this distinguishes "clamped, nothing new" from
+        "genuinely advancing".
+        """
+        return self.index >= self.total - 1
+
+    def __repr__(self) -> str:  # pragma: no cover - diagnostics only
+        return (
+            f"<ServedResponse {self.endpoint} status={self.status} "
+            f"{self.index + 1}/{self.total}"
+            + (f" capture={self.capture_id}" if self.capture_id else "")
+            + ">"
+        )
+
+
+class _PassState:
+    """Shared cursor across the contexts :func:`replay_all` yields.
+
+    A cursor **per request shape**, not one global pass index. Which endpoints
+    a pass touches is only discovered by running the caller's code, and a later
+    pass can reach shapes an earlier one never did: code that branches on a 429
+    takes a different path than code that got a 200. A global index would then
+    start a late-discovered shape partway through its recordings and skip the
+    earlier ones - the shape would be looped incompletely precisely because it
+    was found late.
+
+    So each shape advances its own cursor once per pass, from the pass on which
+    it was first served, and the loop continues while any shape it has served
+    still has a recording nobody has seen.
+    """
+
+    __slots__ = ("pass_no", "_cursors", "_totals", "_served_pairs", "_touched_this_pass")
+
+    def __init__(self) -> None:
+        self.pass_no = 0
+        self._cursors: Dict[_StubKey, int] = {}
+        self._totals: Dict[_StubKey, int] = {}
+        self._served_pairs: set = set()
+        self._touched_this_pass: set = set()
+
+    def index_for(self, stub_key: _StubKey, total: int) -> int:
+        """Which recording this shape serves for the current pass.
+
+        Fixed for the duration of a pass: a shape called twice in one pass
+        serves the same recording both times, so a pass is a coherent snapshot
+        rather than a moving target within a single run of the code.
+        """
+        self._totals[stub_key] = total
+        cursor = self._cursors.setdefault(stub_key, 0)
+        index = min(cursor, total - 1)
+        self._touched_this_pass.add(stub_key)
+        self._served_pairs.add((stub_key, index))
+        return index
+
+    def advance(self) -> bool:
+        """End the pass; return whether another is needed."""
+        for key in self._touched_this_pass:
+            if self._cursors[key] < self._totals[key] - 1:
+                self._cursors[key] += 1
+        self._touched_this_pass = set()
+        self.pass_no += 1
+        # Another pass is worth running only if some shape already served has a
+        # recording at its new cursor that has not been served yet. A shape
+        # sitting at its last recording is done and re-serving it changes
+        # nothing.
+        return any(
+            (key, self._cursors[key]) not in self._served_pairs
+            for key in self._cursors
+        )
+
+
 # ---------------------------------------------------------------------------
 # ReplayContext
 # ---------------------------------------------------------------------------
@@ -837,6 +1021,8 @@ class ReplayContext:
         *,
         on_miss: str = "strict",
         bundle_path: Optional[pathlib.Path] = None,
+        select: Optional[Callable[[List[Dict[str, Any]]], Optional[Dict[str, Any]]]] = None,
+        _pass_state: Optional["_PassState"] = None,
     ) -> None:
         self._bundle = bundle
         self._on_miss = on_miss
@@ -844,6 +1030,65 @@ class ReplayContext:
         self._index, self._curated, self._vp, self._stubs_by_ep = _build_index(bundle)
         self._original_send: Optional[Any] = None
         self._active = False
+        self._select = select
+        self._pass_state = _pass_state
+        self._served: List[ServedResponse] = []
+
+    # ------------------------------------------------------------------
+    # What this context served
+    # ------------------------------------------------------------------
+
+    @property
+    def pass_number(self) -> int:
+        """1-based pass number under :func:`replay_all`, else 1."""
+        return (self._pass_state.pass_no + 1) if self._pass_state is not None else 1
+
+    def served(self) -> List[ServedResponse]:
+        """Every response served through this context, in call order.
+
+        Repeated calls to the same endpoint appear once per call. Use it to
+        assert coverage instead of trusting that the code under test reached
+        what you expected::
+
+            with stubsmith.replay() as r:
+                connector.sync()
+            assert {s.status for s in r.served()} == {200}
+        """
+        return list(self._served)
+
+    def _choose_response(
+        self,
+        stub_key: _StubKey,
+        responses: List[Dict[str, Any]],
+    ) -> Optional[Dict[str, Any]]:
+        """Pick which recorded response to serve for this call."""
+        if not responses:
+            return None
+        if self._select is not None:
+            chosen = self._select(responses)
+            if chosen is None:
+                return None
+            index = responses.index(chosen) if chosen in responses else 0
+        elif self._pass_state is not None:
+            index = self._pass_state.index_for(stub_key, len(responses))
+            chosen = responses[index]
+        else:
+            index = 0
+            chosen = responses[0]
+
+        domain, method, path_template, fingerprint = stub_key
+        self._served.append(ServedResponse(
+            domain=domain,
+            method=method,
+            path_template=path_template,
+            fingerprint=fingerprint,
+            status=chosen.get("status", 200),
+            capture_id=chosen.get("capture_id"),
+            captured_at=chosen.get("captured_at"),
+            index=index,
+            total=len(responses),
+        ))
+        return chosen
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -1006,7 +1251,8 @@ class ReplayContext:
                 msg = f"{msg}\n[bundle loaded from: {self.bundle_path}]"
             raise StubNotFound(method, path_tmpl, fp, msg)
 
-        variant = _select_variant(entry["variants"])
+        responses = _flatten_responses(entry["variants"])
+        variant = self._choose_response(stub_key, responses)
         if variant is None:
             # Fingerprint matched but stub has no variants (degraded stub).
             degraded_msg = (
@@ -1025,10 +1271,117 @@ class ReplayContext:
 # Public factory
 # ---------------------------------------------------------------------------
 
+def by_status(status: int) -> Callable[[List[Dict[str, Any]]], Optional[Dict[str, Any]]]:
+    """A *select* function that serves the newest recording of *status*.
+
+    ::
+
+        with stubsmith.replay(select=stubsmith.by_status(429)):
+            with pytest.raises(RateLimited):
+                connector.sync()
+
+    Returns ``None`` when no recording of that status exists, which surfaces as
+    the usual :exc:`StubNotFound` rather than quietly serving a different
+    status: a rate-limit test that silently ran against a 200 would pass while
+    testing nothing.
+    """
+    def _select(responses: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        for response in responses:
+            if response.get("status") == status:
+                return response
+        return None
+    return _select
+
+
+def replay_all(
+    bundle: Optional[Union[str, pathlib.Path, _BundleDict]] = None,
+    *,
+    on_miss: str = "strict",
+    max_passes: int = 64,
+) -> "Iterator[ReplayContext]":
+    """Yield one replay context per recorded response, to loop the whole window.
+
+    Plain :func:`replay` serves a single response per request shape: the newest
+    recording of the most frequent status. That leaves every other recording
+    unexercised, including the rare 500 or 429 your API really returned. This
+    runs the block repeatedly, advancing one recorded response each pass::
+
+        for attempt in stubsmith.replay_all():
+            with attempt:
+                result = connector.sync_orders()
+            assert result.ok or result.retried
+
+    Pass one serves exactly what :func:`replay` serves, so a test that passes
+    under ``replay()`` still passes on the first pass. Pass two serves the next
+    recording for every shape, and so on.
+
+    The endpoints are never named: which ones a pass touches is discovered by
+    running the code, so this works for a connector whose call sequence you do
+    not want to spell out, and for one whose sequence *changes* between passes
+    because it branches on the response it got.
+
+    Iteration stops when every shape that has actually been touched has served
+    its last recording. A shape with fewer recordings than the current pass
+    keeps serving its final one rather than raising, so a short window never
+    truncates the loop for everything else - check
+    :attr:`ServedResponse.exhausted` on :meth:`ReplayContext.served` if a test
+    needs to know which shapes were clamped.
+
+    Note what this asks of the test body: it runs against a 200 on one pass and
+    possibly a 500 on the next, so the assertions have to hold for the whole
+    recorded range. That is the point - it is how you find out the code breaks
+    on a response your API already returns - but it is a different style of
+    test from one written for a single known response, and :func:`replay` stays
+    the right tool for that.
+
+    Parameters
+    ----------
+    bundle:
+        As :func:`replay`. To loop more than one recording per status the
+        bundle must have been fetched with samples, either
+        ``stubsmith pull --samples all`` or
+        :func:`~stubsmith.fetch_bundle` with ``samples="all"``; a default
+        bundle carries one recording per status and yields one pass per status.
+    on_miss:
+        As :func:`replay`.
+    max_passes:
+        Hard ceiling on iterations, as a backstop. Reaching it stops the loop.
+
+    Yields
+    ------
+    ReplayContext
+        Not yet started - use it as a context manager, one ``with`` per pass.
+    """
+    if on_miss != "strict":
+        raise ValueError(
+            f"on_miss={on_miss!r} is not supported. "
+            "Currently only 'strict' is accepted; other modes come in a later release."
+        )
+    if max_passes < 1:
+        raise ValueError(f"max_passes must be at least 1, got {max_passes!r}")
+
+    # Resolve once: re-reading per pass would re-hit the filesystem and, worse,
+    # could pick up a different bundle mid-loop.
+    data, bundle_path = _resolve_bundle(bundle)
+    state = _PassState()
+
+    while True:
+        yield ReplayContext(
+            data,
+            on_miss=on_miss,
+            bundle_path=bundle_path,
+            _pass_state=state,
+        )
+        more = state.advance()
+        if not more or state.pass_no >= max_passes:
+            return
+
+
 def replay(
     bundle: Optional[Union[str, pathlib.Path, _BundleDict]] = None,
     *,
     on_miss: str = "strict",
+    select: Optional[Callable[[List[Dict[str, Any]]], Optional[Dict[str, Any]]]] = None,
 ) -> ReplayContext:
     """Create a replay context that intercepts outbound ``requests`` calls.
 
@@ -1052,6 +1405,14 @@ def replay(
         accepted in this version; other values raise :exc:`ValueError`
         immediately.  In strict mode every miss raises
         :exc:`StubNotFound`.
+    select:
+        Chooses which recorded response to serve. Receives the shape's
+        recordings as a list, newest-first within each status and ordered so
+        the default choice is first, and returns one of them or ``None`` to
+        force a :exc:`StubNotFound`.  Default picks the first, which is the
+        newest recording of the most frequent status.
+        :func:`by_status` covers the common case; to loop every recording use
+        :func:`replay_all`.
 
     Returns
     -------
@@ -1074,4 +1435,4 @@ def replay(
             "Currently only 'strict' is accepted; other modes come in a later release."
         )
     data, bundle_path = _resolve_bundle(bundle)
-    return ReplayContext(data, on_miss=on_miss, bundle_path=bundle_path)
+    return ReplayContext(data, on_miss=on_miss, bundle_path=bundle_path, select=select)

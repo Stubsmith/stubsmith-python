@@ -67,7 +67,15 @@ from .client import StubSmith, _DEFAULT_URL as DEFAULT_INGEST_URL, _DEFAULT_BACK
 from .fixtures import Fixture, FixtureBundle, fixtures, fixtures_bundle
 from .instrument import install, is_installed
 from .privacy.pipeline import PrivacyPipeline
-from .replay import ReplayContext, StubNotFound, replay
+from .cli import fetch_bundle
+from .replay import (
+    ReplayContext,
+    ServedResponse,
+    StubNotFound,
+    by_status,
+    replay,
+    replay_all,
+)
 
 __all__ = [
     "StubSmith",
@@ -80,7 +88,11 @@ __all__ = [
     "install",
     "is_installed",
     "PrivacyPipeline",
+    "by_status",
+    "fetch_bundle",
     "ReplayContext",
+    "replay_all",
+    "ServedResponse",
     "StubNotFound",
     "replay",
 ]
