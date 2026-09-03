@@ -690,3 +690,120 @@ class ModuleEntryPointTests(unittest.TestCase):
 
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(_resolve_api_url(), "https://app.stubsmith.dev/api")
+
+
+# ---------------------------------------------------------------------------
+# --samples / fetch_bundle
+# ---------------------------------------------------------------------------
+
+class TestSamplesFlag(unittest.TestCase):
+
+    def _pull(self, *extra):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            out = str(pathlib.Path(d) / "bundle.json")
+            with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
+                with patch("urllib.request.urlopen", return_value=_urlopen_mock(_make_bundle())) as mopen:
+                    code = main(["pull", "--out", out, *extra])
+            url = mopen.call_args[0][0].full_url if mopen.call_args else None
+        return code, url
+
+    def test_absent_by_default(self):
+        """A plain pull must not start asking for windows: the server's default
+        is one recording per response and the bundle stays small."""
+        code, url = self._pull()
+        self.assertEqual(code, 0)
+        self.assertNotIn("samples", url)
+
+    def test_all_is_forwarded(self):
+        code, url = self._pull("--endpoint", "GET /api/orders", "--samples", "all")
+        self.assertEqual(code, 0)
+        self.assertIn("samples=all", url)
+
+    def test_integer_is_forwarded(self):
+        code, url = self._pull("--endpoint", "GET /api/orders", "--samples", "5")
+        self.assertEqual(code, 0)
+        self.assertIn("samples=5", url)
+
+    def test_one_needs_no_endpoint(self):
+        code, url = self._pull("--samples", "1")
+        self.assertEqual(code, 0)
+        self.assertIn("samples=1", url)
+
+    def test_above_one_without_endpoint_is_rejected_locally(self):
+        """Rejected before the request so the message names --endpoint rather
+        than surfacing as an opaque HTTP 400."""
+        with patch("sys.stderr", new_callable=io.StringIO) as err:
+            with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
+                with patch("urllib.request.urlopen") as mopen:
+                    code = main(["pull", "--samples", "all"])
+        self.assertEqual(code, 1)
+        self.assertIn("--endpoint", err.getvalue())
+        mopen.assert_not_called()
+
+    def test_garbage_is_rejected(self):
+        for value in ("lots", "0", "-2", "1.5"):
+            with self.subTest(value=value):
+                with patch("sys.stderr", new_callable=io.StringIO) as err:
+                    with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
+                        with patch("urllib.request.urlopen") as mopen:
+                            code = main(["pull", "--endpoint", "GET /x", "--samples", value])
+                self.assertEqual(code, 1)
+                self.assertIn("--samples", err.getvalue())
+                mopen.assert_not_called()
+
+
+class TestFetchBundle(unittest.TestCase):
+
+    def test_returns_the_parsed_bundle(self):
+        import stubsmith
+        bundle = _make_bundle()
+        with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
+            with patch("urllib.request.urlopen", return_value=_urlopen_mock(bundle)):
+                got = stubsmith.fetch_bundle("GET /api/orders", samples="all")
+        self.assertEqual(got["endpoints"], bundle["endpoints"])
+
+    def test_forwards_endpoint_and_samples(self):
+        import stubsmith
+        with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
+            with patch("urllib.request.urlopen", return_value=_urlopen_mock(_make_bundle())) as mopen:
+                stubsmith.fetch_bundle("get /api/orders", samples=3)
+        url = mopen.call_args[0][0].full_url
+        self.assertIn("method=GET", url)
+        self.assertIn("samples=3", url)
+
+    def test_explicit_api_key_beats_the_environment(self):
+        import stubsmith
+        with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-from-env"}):
+            with patch("urllib.request.urlopen", return_value=_urlopen_mock(_make_bundle())) as mopen:
+                stubsmith.fetch_bundle(api_key="sk-explicit")
+        header = mopen.call_args[0][0].get_header("Authorization")
+        self.assertEqual(header, "Bearer sk-explicit")
+
+    def test_no_key_anywhere_raises(self):
+        import stubsmith
+        backup = os.environ.pop("STUBSMITH_API_KEY", None)
+        try:
+            with self.assertRaisesRegex(RuntimeError, "STUBSMITH_API_KEY"):
+                stubsmith.fetch_bundle()
+        finally:
+            if backup is not None:
+                os.environ["STUBSMITH_API_KEY"] = backup
+
+    def test_malformed_endpoint_raises(self):
+        import stubsmith
+        with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
+            with self.assertRaisesRegex(ValueError, "METHOD /path"):
+                stubsmith.fetch_bundle("/api/orders")
+
+    def test_samples_above_one_without_endpoint_raises(self):
+        import stubsmith
+        with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
+            with self.assertRaisesRegex(ValueError, "requires an endpoint"):
+                stubsmith.fetch_bundle(samples="all")
+
+    def test_bad_samples_value_raises(self):
+        import stubsmith
+        with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
+            with self.assertRaisesRegex(ValueError, "positive integer"):
+                stubsmith.fetch_bundle("GET /x", samples="lots")

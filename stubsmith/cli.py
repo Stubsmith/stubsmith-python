@@ -45,7 +45,7 @@ import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from ._version import __version__
 
@@ -76,6 +76,7 @@ def _fetch_bundle(
     api_key: str,
     method: Optional[str] = None,
     path: Optional[str] = None,
+    samples: Optional[Union[int, str]] = None,
 ) -> Dict[str, Any]:
     """Fetch ``GET /v1/replay/bundle`` and return the parsed JSON body.
 
@@ -90,6 +91,13 @@ def _fetch_bundle(
     path:
         Optional path-template filter (e.g. ``"/api/users/{id}"``).
         Required when *method* is supplied.
+    samples:
+        How many recordings to fetch per response.  ``None`` (default) asks
+        the server for one, the newest, which is all replay needs to serve a
+        response.  A positive integer or ``"all"`` fetches the rolling sample
+        window so every recording can be looped over.  Above one the server
+        requires an endpoint filter and rejects an unscoped request, since the
+        full window for a whole project is neither small nor useful.
 
     Returns
     -------
@@ -108,6 +116,8 @@ def _fetch_bundle(
         params["method"] = method
     if path:
         params["path"] = path
+    if samples is not None:
+        params["samples"] = str(samples)
 
     qs = ("?" + urllib.parse.urlencode(params)) if params else ""
     url = api_url.rstrip("/") + "/v1/replay/bundle" + qs
@@ -351,9 +361,34 @@ def _cmd_pull(args: argparse.Namespace) -> int:
         ep_method = parts[0].strip().upper()
         ep_path   = parts[1].strip()
 
+    # ── Validate --samples ────────────────────────────────────────────────
+    samples: Optional[str] = None
+    if args.samples is not None:
+        raw = args.samples.strip().lower()
+        if raw != "all" and not raw.isdigit():
+            print(
+                f"Error: --samples must be a positive integer or 'all', got: {args.samples!r}",
+                file=sys.stderr,
+            )
+            return 1
+        if raw.isdigit() and int(raw) < 1:
+            print("Error: --samples must be at least 1.", file=sys.stderr)
+            return 1
+        # Checked here rather than only server-side so the failure names the
+        # flag the user typed instead of surfacing as an HTTP 400.
+        if (raw == "all" or int(raw) > 1) and not args.endpoint:
+            print(
+                "Error: --samples greater than 1 requires --endpoint.\n"
+                "Fetching every recording for a whole project is not supported; "
+                'scope it, e.g. --endpoint "GET /api/orders".',
+                file=sys.stderr,
+            )
+            return 1
+        samples = raw
+
     # ── Fetch ─────────────────────────────────────────────────────────────
     try:
-        raw_data = _fetch_bundle(api_url, api_key, method=ep_method, path=ep_path)
+        raw_data = _fetch_bundle(api_url, api_key, method=ep_method, path=ep_path, samples=samples)
     except RuntimeError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
@@ -423,6 +458,18 @@ def main(argv: Optional[List[str]] = None) -> int:
             "Passes method= and path= query parameters to the server."
         ),
     )
+    pull_parser.add_argument(
+        "--samples",
+        default=None,
+        metavar="N|all",
+        help=(
+            "How many recordings to keep per response (default: 1, the newest). "
+            "Use N or 'all' to pull the rolling sample window so "
+            "stubsmith.replay_all() can loop every recording. "
+            "Requires --endpoint: the full window for a whole project is not "
+            "served."
+        ),
+    )
 
     args = parser.parse_args(argv)
 
@@ -437,3 +484,108 @@ def main(argv: Optional[List[str]] = None) -> int:
 def _cli_entry() -> None:
     """Console script shim: calls ``main()`` and exits with its return code."""
     sys.exit(main())
+
+
+def fetch_bundle(
+    endpoint: Optional[str] = None,
+    *,
+    samples: Optional[Union[int, str]] = None,
+    api_url: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Fetch a replay bundle from the API and return it, without touching disk.
+
+    The supported way to get a bundle at test-collection time, for a suite that
+    should exercise current recordings rather than a committed snapshot::
+
+        import stubsmith
+
+        BUNDLE = stubsmith.fetch_bundle("GET /admin/orders", samples="all")
+
+        def test_every_recorded_response():
+            for attempt in stubsmith.replay_all(BUNDLE):
+                with attempt:
+                    connector.list_orders()
+
+    Fetch once at module level, not per test: this is a blocking HTTP call.
+
+    A live API key is needed wherever the tests run, which is the trade against
+    ``stubsmith pull`` plus a committed bundle. Live recordings also roll as the
+    sample window rolls, so a failure seen today may not reproduce next week.
+    Prefer this for local iteration and a committed bundle for CI.
+
+    Parameters
+    ----------
+    endpoint:
+        ``"METHOD /path"``, e.g. ``"GET /admin/orders"``. The path may be the
+        concrete one your code calls; the server resolves it against your
+        recorded path patterns. ``None`` fetches the whole project, which is
+        subject to the server's stub cap - check ``truncated`` in the result.
+    samples:
+        Recordings to fetch per response. ``None`` (default) is one, the
+        newest. A positive integer or ``"all"`` fetches the rolling window so
+        :func:`~stubsmith.replay_all` has something to loop. Above one an
+        *endpoint* is required.
+    api_url:
+        Backend base URL. Defaults to ``$STUBSMITH_API_URL``, then
+        ``$STUBSMITH_BACKEND_URL``, then the hosted service.
+    api_key:
+        Project key. Defaults to ``$STUBSMITH_API_KEY``.
+
+    Returns
+    -------
+    dict
+        The parsed bundle, ready to hand to :func:`~stubsmith.replay` or
+        :func:`~stubsmith.replay_all`.
+
+    Raises
+    ------
+    ValueError
+        When *endpoint* is malformed, *samples* is not a positive integer or
+        ``"all"``, or ``samples > 1`` without an *endpoint*.
+    RuntimeError
+        When no API key is available, or on any HTTP or network failure.
+    """
+    key = api_key or os.environ.get("STUBSMITH_API_KEY", "")
+    if not key:
+        raise RuntimeError(
+            "No API key: pass api_key= or set $STUBSMITH_API_KEY."
+        )
+
+    ep_method: Optional[str] = None
+    ep_path: Optional[str] = None
+    if endpoint is not None:
+        parts = endpoint.split(" ", 1)
+        if len(parts) != 2 or not parts[0].strip() or not parts[1].strip():
+            raise ValueError(
+                f'endpoint must be "METHOD /path" (e.g. "GET /api/orders"), got: {endpoint!r}'
+            )
+        ep_method = parts[0].strip().upper()
+        ep_path = parts[1].strip()
+
+    normalised: Optional[str] = None
+    if samples is not None:
+        raw = str(samples).strip().lower()
+        if raw != "all" and not raw.isdigit():
+            raise ValueError(
+                f"samples must be a positive integer or 'all', got: {samples!r}"
+            )
+        if raw.isdigit() and int(raw) < 1:
+            raise ValueError(f"samples must be at least 1, got: {samples!r}")
+        # Raised locally rather than waiting for the server's 400 so the
+        # message names the argument the caller passed.
+        if (raw == "all" or int(raw) > 1) and endpoint is None:
+            raise ValueError(
+                "samples greater than 1 requires an endpoint. Fetching every "
+                'recording for a whole project is not supported; scope it, e.g. '
+                'fetch_bundle("GET /api/orders", samples="all").'
+            )
+        normalised = raw
+
+    return _fetch_bundle(
+        api_url or _resolve_api_url(),
+        key,
+        method=ep_method,
+        path=ep_path,
+        samples=normalised,
+    )

@@ -1800,3 +1800,237 @@ class TestNearMissDiagnostics:
         assert "symmetry bug" not in msg, (
             f"Must not claim SDK bug when bundle fields are absent, got:\n{msg}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Looping every recorded response
+#
+# replay() serves one recording per shape, so every other recording the server
+# holds goes unexercised - including the 429 and 500 the API really returned.
+# replay_all() runs the block once per recording.
+# ---------------------------------------------------------------------------
+
+def _sample(capture_id: str, body: str, *, captured_at: str = "2026-09-01T00:00:00Z",
+            headers: Dict[str, str] = None, duration_ms: int = 5) -> Dict[str, Any]:
+    return {
+        "capture_id": capture_id,
+        "captured_at": captured_at,
+        "duration_ms": duration_ms,
+        "headers": headers or {"content-type": "application/json"},
+        "body": body,
+    }
+
+
+def _windowed_variant(status: int, count: int, samples: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """A variant as the server returns it for ?samples>1."""
+    v = _variant(status, samples[0]["body"], count=count)
+    v["samples"] = samples
+    return v
+
+
+def _windowed_bundle() -> Dict[str, Any]:
+    return _bundle(_endpoint("GET", "/orders", [
+        _stub(_FP_EMPTY_GET, [
+            _windowed_variant(200, 90, [
+                _sample("c200a", '{"n": 1}'),
+                _sample("c200b", '{"n": 2}'),
+                _sample("c200c", '{"n": 3}'),
+            ]),
+            _windowed_variant(429, 2, [_sample("c429a", '{"e": "rate"}')]),
+            _windowed_variant(500, 1, [_sample("c500a", '{"e": "boom"}')]),
+        ]),
+    ]))
+
+
+def _get_orders() -> Any:
+    return requests.get(f"https://{_DOMAIN}/orders")
+
+
+class TestReplayAll:
+    def test_loops_every_recording_once(self):
+        seen = []
+        for attempt in stubsmith.replay_all(_windowed_bundle()):
+            with attempt:
+                resp = _get_orders()
+            served = attempt.served()
+            assert len(served) == 1
+            seen.append((resp.status_code, resp.text, served[0].capture_id))
+
+        assert seen == [
+            (200, '{"n": 1}', "c200a"),
+            (200, '{"n": 2}', "c200b"),
+            (200, '{"n": 3}', "c200c"),
+            (429, '{"e": "rate"}', "c429a"),
+            (500, '{"e": "boom"}', "c500a"),
+        ]
+
+    def test_first_pass_matches_plain_replay(self):
+        """A test that passes under replay() must pass on pass one, or moving to
+        replay_all() would change the meaning of the existing assertions."""
+        bundle = _windowed_bundle()
+        with replay(bundle):
+            baseline = _get_orders()
+        first = next(iter(stubsmith.replay_all(bundle)))
+        with first:
+            got = _get_orders()
+        assert (got.status_code, got.text) == (baseline.status_code, baseline.text)
+
+    def test_a_bundle_without_samples_yields_one_pass_per_status(self):
+        """stubsmith pull without --samples returns one recording per status.
+        Looping must still work, just with fewer passes."""
+        bundle = _bundle(_endpoint("GET", "/orders", [
+            _stub(_FP_EMPTY_GET, [
+                _variant(200, '{"a": 1}', count=5),
+                _variant(500, '{"b": 2}', count=1),
+            ]),
+        ]))
+        codes = []
+        for attempt in stubsmith.replay_all(bundle):
+            with attempt:
+                codes.append(_get_orders().status_code)
+        assert codes == [200, 500]
+
+    def test_a_single_recording_yields_exactly_one_pass(self):
+        bundle = _bundle(_endpoint("GET", "/orders", [
+            _stub(_FP_EMPTY_GET, [_variant(200, '{"a": 1}')]),
+        ]))
+        passes = 0
+        for attempt in stubsmith.replay_all(bundle):
+            with attempt:
+                _get_orders()
+            passes += 1
+        assert passes == 1
+
+    def test_a_short_window_clamps_instead_of_raising(self):
+        """Two shapes with different window lengths: the shorter one must keep
+        serving its last recording rather than raise, or one endpoint's short
+        history would truncate the loop for everything else."""
+        bundle = _bundle(
+            _endpoint("GET", "/orders", [
+                _stub(_FP_EMPTY_GET, [_windowed_variant(200, 3, [
+                    _sample("long-a", '{"i": 1}'),
+                    _sample("long-b", '{"i": 2}'),
+                    _sample("long-c", '{"i": 3}'),
+                ])]),
+            ]),
+            _endpoint("GET", "/health", [
+                _stub(_FP_EMPTY_GET, [_windowed_variant(200, 1, [
+                    _sample("short-a", '{"ok": true}'),
+                ])]),
+            ]),
+        )
+        orders, health = [], []
+        for attempt in stubsmith.replay_all(bundle):
+            with attempt:
+                orders.append(_get_orders().text)
+                health.append(requests.get(f"https://{_DOMAIN}/health").text)
+            by_ep = {s.path_template: s for s in attempt.served()}
+            if attempt.pass_number > 1:
+                assert by_ep["/health"].exhausted is True
+
+        assert orders == ['{"i": 1}', '{"i": 2}', '{"i": 3}']
+        assert health == ['{"ok": true}'] * 3
+
+    def test_an_endpoint_first_reached_on_a_later_pass_is_still_looped(self):
+        """The endpoint set is discovered by running the code, and code that
+        branches on the response it got can reach different endpoints on
+        different passes. The stopping condition must come from what has been
+        served, not from a count computed up front."""
+        bundle = _bundle(
+            _endpoint("GET", "/orders", [
+                _stub(_FP_EMPTY_GET, [
+                    _windowed_variant(200, 5, [_sample("ok-a", '{"ok": true}')]),
+                    _windowed_variant(500, 1, [_sample("err-a", '{"err": true}')]),
+                ]),
+            ]),
+            _endpoint("GET", "/retry", [
+                _stub(_FP_EMPTY_GET, [_windowed_variant(200, 2, [
+                    _sample("retry-a", '{"r": 1}'),
+                    _sample("retry-b", '{"r": 2}'),
+                    _sample("retry-c", '{"r": 3}'),
+                ])]),
+            ]),
+        )
+        retries = []
+        passes = 0
+        for attempt in stubsmith.replay_all(bundle):
+            with attempt:
+                # /retry is only called after a 500, so it is untouched on pass 1.
+                if _get_orders().status_code >= 500:
+                    retries.append(requests.get(f"https://{_DOMAIN}/retry").text)
+            passes += 1
+
+        # Pass 1: 200. Pass 2: 500, which reaches /retry for the first time and
+        # reveals a 3-long window, so the loop must continue to passes 3 and 4.
+        assert retries == ['{"r": 1}', '{"r": 2}', '{"r": 3}']
+        assert passes == 4
+
+    def test_max_passes_caps_the_loop(self):
+        passes = 0
+        for attempt in stubsmith.replay_all(_windowed_bundle(), max_passes=2):
+            with attempt:
+                _get_orders()
+            passes += 1
+        assert passes == 2
+
+    def test_max_passes_must_be_positive(self):
+        with pytest.raises(ValueError, match="max_passes"):
+            next(iter(stubsmith.replay_all(_windowed_bundle(), max_passes=0)))
+
+    def test_on_miss_is_validated(self):
+        with pytest.raises(ValueError, match="on_miss"):
+            next(iter(stubsmith.replay_all(_windowed_bundle(), on_miss="passthrough")))
+
+    def test_session_send_is_restored_after_the_loop(self):
+        original = requests.sessions.Session.send
+        for attempt in stubsmith.replay_all(_windowed_bundle()):
+            with attempt:
+                _get_orders()
+        assert requests.sessions.Session.send is original
+
+    def test_no_network_is_attempted(self):
+        with patch("requests.adapters.HTTPAdapter.send") as adapter:
+            for attempt in stubsmith.replay_all(_windowed_bundle()):
+                with attempt:
+                    _get_orders()
+            adapter.assert_not_called()
+
+
+class TestSelect:
+    def test_by_status_serves_that_status(self):
+        with replay(_windowed_bundle(), select=stubsmith.by_status(429)):
+            resp = _get_orders()
+        assert resp.status_code == 429
+        assert resp.text == '{"e": "rate"}'
+
+    def test_by_status_for_an_unrecorded_status_raises(self):
+        """Serving a different status instead would let a rate-limit test pass
+        while exercising the happy path."""
+        with replay(_windowed_bundle(), select=stubsmith.by_status(418)):
+            with pytest.raises(StubNotFound):
+                _get_orders()
+
+    def test_a_custom_select_receives_every_recording(self):
+        seen: List[Dict[str, Any]] = []
+
+        def _oldest(responses):
+            seen.extend(responses)
+            return responses[-1]
+
+        with replay(_windowed_bundle(), select=_oldest):
+            resp = _get_orders()
+
+        assert len(seen) == 5, [r.get("capture_id") for r in seen]
+        assert resp.text == '{"e": "boom"}'
+
+    def test_served_reports_what_ran(self):
+        with replay(_windowed_bundle()) as ctx:
+            _get_orders()
+            _get_orders()
+        served = ctx.served()
+        assert len(served) == 2
+        assert served[0].endpoint == f"GET {_DOMAIN}/orders"
+        assert served[0].status == 200
+        assert served[0].capture_id == "c200a"
+        assert served[0].total == 5
+        assert served[0].exhausted is False

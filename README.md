@@ -253,11 +253,11 @@ returning this response body:
 
 the SDK sends exactly this to `POST https://ingest.stubsmith.dev/v1/captures`,
 with `Authorization: Bearer <your project key>` and
-`User-Agent: stubsmith-sdk/0.2.0`:
+`User-Agent: stubsmith-sdk/0.3.0`:
 
 ```json
 {
-  "sdk_version": "0.2.0",
+  "sdk_version": "0.3.0",
   "sdk_masked": true,
   "sdk_rule_version": "0",
   "domain": "api.example.com",
@@ -399,6 +399,98 @@ with stubsmith.replay("tests/data/bundle.json"):
     ...
 ```
 
+### Every recorded response, not just the newest
+
+`replay()` serves **one** response per request shape: the newest recording of
+the status that occurred most often. That leaves everything else in the
+recording unexercised, which is usually where the bugs are. Stubsmith keeps a
+rolling window of recent samples for each distinct response a shape returned, so
+the 429 and the 500 your API really produced are sitting there unused.
+
+`replay_all()` runs the block once per recorded response:
+
+```python
+def test_survives_every_recorded_response():
+    for attempt in stubsmith.replay_all():
+        with attempt:
+            result = connector.sync_orders()
+        assert result.ok or result.retried
+```
+
+You never name an endpoint. Which ones a pass touches is discovered by running
+your code, so this works for a connector whose call sequence you would rather
+not spell out, and for one whose sequence *changes* between passes because it
+branches on the response it got: an endpoint first reached on pass four still
+gets looped from its own first recording.
+
+Pass one serves exactly what `replay()` serves, so a test that passes under
+`replay()` still passes on the first pass. Iteration stops when every shape
+that was actually touched has served its last recording. A shape with a shorter
+window keeps serving its final recording rather than raising, so one endpoint's
+thin history never truncates the loop for everything else.
+
+What this asks of the test body is real: it runs against a 200 on one pass and
+possibly a 500 on the next, so the assertions have to hold across the whole
+recorded range. That is the point, and it is also why `replay()` remains the
+right tool for a test written against one known response.
+
+To pin a single response instead, pass `select`:
+
+```python
+def test_backs_off_when_rate_limited():
+    with stubsmith.replay(select=stubsmith.by_status(429)):
+        with pytest.raises(RateLimited):
+            connector.sync_orders()
+```
+
+`by_status` raises `StubNotFound` when no recording of that status exists,
+rather than quietly serving a different one - a rate-limit test that silently
+ran against a 200 would pass while testing nothing. `select` receives every
+recording as a list and returns one, so any other rule is a lambda away.
+
+Either way, `served()` reports what actually ran, so a test can assert coverage
+instead of assuming it:
+
+```python
+with stubsmith.replay() as r:
+    connector.sync_orders()
+assert {s.status for s in r.served()} == {200}
+```
+
+Each entry carries `endpoint`, `status`, `capture_id`, `captured_at`, and
+`index`/`total`/`exhausted` describing its place in the shape's window.
+
+#### Getting the window into the bundle
+
+A default bundle holds one recording per response, so `replay_all()` would give
+one pass per status. Ask for the window explicitly:
+
+```sh
+stubsmith pull --endpoint "GET /admin/orders" --samples all \
+  --out tests/bundles/admin-orders.json
+```
+
+`--samples` above 1 requires `--endpoint`: the full window for a whole project
+is not served, and per-endpoint files are what you want anyway, since a
+project-wide bundle is capped at 2000 request shapes and silently drops the
+rest.
+
+Or fetch at collection time, with no file involved:
+
+```python
+BUNDLE = stubsmith.fetch_bundle("GET /admin/orders", samples="all")
+
+def test_every_recorded_response():
+    for attempt in stubsmith.replay_all(BUNDLE):
+        with attempt:
+            connector.list_orders()
+```
+
+Fetch once at module level, not per test - it is a blocking HTTP call. It needs
+a live key wherever the tests run, and live recordings roll as the window rolls,
+so a failure you see today may not reproduce next week. Fetch live while
+iterating locally; commit a pulled bundle for CI.
+
 ### Matching
 
 A request is matched on `(domain, method, path_template, fingerprint)`.  The
@@ -480,6 +572,42 @@ small enough that a keyed hash could be reversed with a lookup table.  Use
 ---
 
 ## Changelog
+
+### 0.3.0
+
+**New: `replay_all()`, for looping every recorded response.** `replay()` serves
+one response per request shape, the newest recording of the most frequent
+status, which leaves the rest of the rolling sample window unexercised: the 429
+and the 500 the API really returned are recorded and never tested against.
+`replay_all()` runs a block once per recording.
+
+No endpoint is named: which shapes a pass touches is discovered by running your
+code, so a connector whose call sequence changes between passes, because it
+branches on the response it got, still works. An endpoint first reached on a
+later pass is looped from its own first recording rather than starting partway
+through. Pass one serves exactly what `replay()` serves, so moving an existing
+test to `replay_all()` does not change what the first pass asserts.
+
+**New: `replay(select=...)` and `by_status()`.** Pin a single recorded response,
+for a test written against one known outcome. `by_status()` raises
+`StubNotFound` when no recording of that status exists rather than serving a
+different one, so a rate-limit test cannot silently pass against a 200.
+
+**New: `ReplayContext.served()`.** Reports which recordings actually ran, with
+the endpoint, status, `capture_id`, `captured_at` and position in the shape's
+window, so a test can assert its coverage instead of assuming it.
+
+**New: `fetch_bundle()` and `stubsmith pull --samples`.** A bundle carries one
+recording per response by default, so `--samples N` or `--samples all` is what
+puts the window into one; it requires `--endpoint`, since the full window for a
+whole project is not served. `fetch_bundle()` fetches without going through a
+file, for a suite that wants current recordings at collection time. Previously
+the only route to that was importing `stubsmith.cli._fetch_bundle`, which is
+private and carried no compatibility promise.
+
+Nothing in this release changes existing behaviour: `replay()` with no
+arguments serves the same response it did in 0.2.0, and a bundle pulled without
+`--samples` is byte-identical.
 
 ### 0.2.0
 
