@@ -2034,3 +2034,108 @@ class TestSelect:
         assert served[0].capture_id == "c200a"
         assert served[0].total == 5
         assert served[0].exhausted is False
+
+
+# ---------------------------------------------------------------------------
+# statuses= : loop one kind of response
+#
+# Unfiltered, the loop mixes successes and failures into one test body, so the
+# body has to hold for both and a status that enters the window later breaks
+# assertions written when only the other kind existed. That makes a red build
+# mean "the recording changed" rather than "the code broke".
+# ---------------------------------------------------------------------------
+
+class TestReplayAllStatuses:
+    def test_loops_only_the_requested_status(self):
+        seen = []
+        for attempt in stubsmith.replay_all(_windowed_bundle(), statuses={200}):
+            with attempt:
+                resp = _get_orders()
+            seen.append((resp.status_code, resp.text))
+        assert seen == [
+            (200, '{"n": 1}'),
+            (200, '{"n": 2}'),
+            (200, '{"n": 3}'),
+        ]
+
+    def test_a_set_of_statuses_loops_all_of_them(self):
+        seen = []
+        for attempt in stubsmith.replay_all(_windowed_bundle(), statuses={429, 500}):
+            with attempt:
+                seen.append(_get_orders().status_code)
+        assert sorted(seen) == [429, 500]
+
+    def test_index_and_total_describe_the_filtered_window(self):
+        """total must count the filtered recordings, not every recording, or
+        exhausted would never become true for the last one."""
+        totals, exhausted = [], []
+        for attempt in stubsmith.replay_all(_windowed_bundle(), statuses={200}):
+            with attempt:
+                _get_orders()
+            served = attempt.served()[0]
+            totals.append(served.total)
+            exhausted.append(served.exhausted)
+        assert totals == [3, 3, 3]
+        assert exhausted == [False, False, True]
+
+    def test_a_status_with_no_recording_raises_rather_than_substituting(self):
+        """Serving another status would have the loop assert against a response
+        it was explicitly told to exclude."""
+        with pytest.raises(StubNotFound) as exc:
+            for attempt in stubsmith.replay_all(_windowed_bundle(), statuses={418}):
+                with attempt:
+                    _get_orders()
+        msg = str(exc.value)
+        assert "418" in msg
+        assert "200, 429, 500" in msg, msg
+
+    def test_the_filter_bounds_the_pass_count(self):
+        unfiltered = 0
+        for attempt in stubsmith.replay_all(_windowed_bundle()):
+            with attempt:
+                _get_orders()
+            unfiltered += 1
+        filtered = 0
+        for attempt in stubsmith.replay_all(_windowed_bundle(), statuses={429}):
+            with attempt:
+                _get_orders()
+            filtered += 1
+        assert unfiltered == 5
+        assert filtered == 1
+
+    def test_one_endpoint_missing_the_status_does_not_hide_behind_another(self):
+        """A shape without the requested status must raise even when a sibling
+        endpoint in the same pass has it, so the gap is not silently skipped."""
+        bundle = _bundle(
+            _endpoint("GET", "/orders", [
+                _stub(_FP_EMPTY_GET, [_windowed_variant(200, 5, [_sample("ok", '{"ok": true}')])]),
+            ]),
+            _endpoint("GET", "/health", [
+                _stub(_FP_EMPTY_GET, [_windowed_variant(500, 1, [_sample("bad", '{"e": 1}')])]),
+            ]),
+        )
+        with pytest.raises(StubNotFound, match="/health"):
+            for attempt in stubsmith.replay_all(bundle, statuses={200}):
+                with attempt:
+                    _get_orders()
+                    requests.get(f"https://{_DOMAIN}/health")
+
+    def test_statuses_is_accepted_as_any_iterable_set(self):
+        for value in ({200}, frozenset({200})):
+            codes = []
+            for attempt in stubsmith.replay_all(_windowed_bundle(), statuses=value):
+                with attempt:
+                    codes.append(_get_orders().status_code)
+            assert codes == [200, 200, 200], value
+
+    def test_unfiltered_behaviour_is_unchanged(self):
+        """statuses=None must be byte-identical to not passing it at all."""
+        a, b = [], []
+        for attempt in stubsmith.replay_all(_windowed_bundle()):
+            with attempt:
+                a.append(_get_orders().text)
+        for attempt in stubsmith.replay_all(_windowed_bundle(), statuses=None):
+            with attempt:
+                b.append(_get_orders().text)
+        assert a == b
+        assert len(a) == 5

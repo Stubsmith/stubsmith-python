@@ -101,7 +101,7 @@ import http.client
 import json
 import os
 import pathlib
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
+from typing import AbstractSet, Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 from ._replay_state import enter_replay, exit_replay
@@ -932,6 +932,33 @@ class ServedResponse:
         )
 
 
+def _status_filter_message(
+    method: str,
+    path_tmpl: str,
+    fp: str,
+    statuses: "AbstractSet[int]",
+    available: List[int],
+) -> str:
+    """Explain that recordings exist for this shape, but not of the wanted status.
+
+    Distinct from an ordinary miss: the shape matched and has recordings, so the
+    near-miss key-path diff would be noise. What the caller needs is the gap
+    between what they asked for and what was recorded.
+    """
+    wanted = ", ".join(str(x) for x in sorted(statuses))
+    got = ", ".join(str(x) for x in sorted(set(available))) or "none"
+    return (
+        f"no recorded {wanted} response for {method} {path_tmpl}  "
+        f"(fingerprint {fp})\n\n"
+        f"statuses recorded for this shape: {got}\n\n"
+        "This shape is in the bundle, so the request matched; it has no recording "
+        "of the status you filtered to. Serving one of the statuses above instead "
+        "would make the loop assert against a response it was told to exclude.\n\n"
+        "Either widen statuses=, or exclude this endpoint from the loop.\n\n"
+        f"{_REFRESH_HINT}"
+    )
+
+
 class _PassState:
     """Shared cursor across the contexts :func:`replay_all` yields.
 
@@ -1022,6 +1049,7 @@ class ReplayContext:
         on_miss: str = "strict",
         bundle_path: Optional[pathlib.Path] = None,
         select: Optional[Callable[[List[Dict[str, Any]]], Optional[Dict[str, Any]]]] = None,
+        statuses: Optional["AbstractSet[int]"] = None,
         _pass_state: Optional["_PassState"] = None,
     ) -> None:
         self._bundle = bundle
@@ -1031,6 +1059,7 @@ class ReplayContext:
         self._original_send: Optional[Any] = None
         self._active = False
         self._select = select
+        self._statuses = frozenset(statuses) if statuses is not None else None
         self._pass_state = _pass_state
         self._served: List[ServedResponse] = []
 
@@ -1252,6 +1281,22 @@ class ReplayContext:
             raise StubNotFound(method, path_tmpl, fp, msg)
 
         responses = _flatten_responses(entry["variants"])
+        if self._statuses is not None:
+            kept = [r for r in responses if r.get("status") in self._statuses]
+            if not kept:
+                # The shape matched and has recordings, just not of the wanted
+                # status. Raise rather than substitute, for the same reason
+                # by_status() does: a loop told to exercise 200s must not
+                # silently assert against a 500.
+                msg = _status_filter_message(
+                    method, path_tmpl, fp, self._statuses,
+                    [r.get("status") for r in responses],
+                )
+                if self.bundle_path is not None:
+                    msg = f"{msg}\n[bundle loaded from: {self.bundle_path}]"
+                raise StubNotFound(method, path_tmpl, fp, msg)
+            responses = kept
+
         variant = self._choose_response(stub_key, responses)
         if variant is None:
             # Fingerprint matched but stub has no variants (degraded stub).
@@ -1297,6 +1342,7 @@ def replay_all(
     bundle: Optional[Union[str, pathlib.Path, _BundleDict]] = None,
     *,
     on_miss: str = "strict",
+    statuses: Optional["AbstractSet[int]"] = None,
     max_passes: int = 64,
 ) -> "Iterator[ReplayContext]":
     """Yield one replay context per recorded response, to loop the whole window.
@@ -1334,6 +1380,18 @@ def replay_all(
     test from one written for a single known response, and :func:`replay` stays
     the right tool for that.
 
+    Because the body runs against a different recording each pass, write it to
+    hold for the whole range you are looping.  Asserting the happy path inside
+    an unfiltered loop is the common mistake: the day a 500 enters the window,
+    the build breaks on a new recording rather than on a code change, which
+    inverts what a red test is supposed to tell you.  Either filter with
+    *statuses* or assert on the contract both outcomes share::
+
+        for attempt in stubsmith.replay_all(statuses={500, 502}):
+            with attempt:
+                with pytest.raises(UpstreamUnavailable):
+                    connector.sync_orders()
+
     Parameters
     ----------
     bundle:
@@ -1344,8 +1402,34 @@ def replay_all(
         bundle carries one recording per status and yields one pass per status.
     on_miss:
         As :func:`replay`.
+    statuses:
+        Loop only recordings whose response status is in this set, e.g.
+        ``statuses={200}`` or ``statuses={429, 500}``.  ``None`` (default)
+        loops every recording.
+
+        This is usually what you want, because it decides what a red build
+        means.  Unfiltered, the loop mixes successes and failures into one test
+        body, so the body has to hold for both, and a status that enters the
+        window later breaks assertions written when only the other kind
+        existed.  Filtered, every pass is the same kind of response, the
+        assertions can be specific, and a failure means the code cannot handle
+        a response the API genuinely returns.
+
+        A shape with recordings but none of the requested status raises
+        :exc:`StubNotFound` naming the filter and listing what it does have.
+        Substituting another status would have the loop assert against a
+        response it was told to exclude.
+
+        Note that the "first pass matches :func:`replay`" property does not
+        hold under a filter, since ``replay()``'s choice may not be in the set.
     max_passes:
         Hard ceiling on iterations, as a backstop. Reaching it stops the loop.
+
+        Worth knowing when unfiltered: the pass count is the largest recorded
+        window among the shapes touched, which is roughly
+        (samples per response) x (distinct statuses), so it grows with traffic
+        without any code change.  A *statuses* filter bounds it to one status's
+        window.
 
     Yields
     ------
@@ -1370,6 +1454,7 @@ def replay_all(
             data,
             on_miss=on_miss,
             bundle_path=bundle_path,
+            statuses=statuses,
             _pass_state=state,
         )
         more = state.advance()
