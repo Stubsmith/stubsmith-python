@@ -81,3 +81,18 @@ jobs:
           path: dist/
 
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # A version already on PyPI is skipped instead of failing the job.
+          #
+          # PyPI files are immutable, so re-uploading an existing version is
+          # always an error rather than an overwrite. Without this, any second
+          # firing for a version fails the run: publishing a GitHub release for
+          # a version that was released by workflow_dispatch, re-running a run
+          # to get past an unrelated flake, or tagging retroactively. The
+          # failure is a red X on a release that is in fact fine, which trains
+          # people to ignore red on this workflow.
+          #
+          # This does not weaken anything: a genuinely new version still
+          # uploads, and a version that already exists could not have been
+          # replaced either way.
+          skip-existing: true
