@@ -45,7 +45,7 @@ import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from ._version import __version__
 
@@ -347,19 +347,19 @@ def _cmd_pull(args: argparse.Namespace) -> int:
     api_url = _resolve_api_url()
 
     # ── Parse --endpoint filter ───────────────────────────────────────────
-    ep_method: Optional[str] = None
-    ep_path:   Optional[str] = None
-    if args.endpoint:
-        parts = args.endpoint.split(" ", 1)
+    endpoints: List[Tuple[Optional[str], Optional[str]]] = []
+    for raw_ep in (args.endpoint or []):
+        parts = raw_ep.split(" ", 1)
         if len(parts) != 2 or not parts[0].strip() or not parts[1].strip():
             print(
                 f"Error: --endpoint must be \"METHOD /path\" (e.g. \"GET /api/users\"), "
-                f"got: {args.endpoint!r}",
+                f"got: {raw_ep!r}",
                 file=sys.stderr,
             )
             return 1
-        ep_method = parts[0].strip().upper()
-        ep_path   = parts[1].strip()
+        endpoints.append((parts[0].strip().upper(), parts[1].strip()))
+    if not endpoints:
+        endpoints = [(None, None)]   # whole project
 
     # ── Validate --samples ────────────────────────────────────────────────
     samples: Optional[str] = None
@@ -380,21 +380,29 @@ def _cmd_pull(args: argparse.Namespace) -> int:
             print(
                 "Error: --samples greater than 1 requires --endpoint.\n"
                 "Fetching every recording for a whole project is not supported; "
-                'scope it, e.g. --endpoint "GET /api/orders".',
+                'scope it, e.g. --endpoint "GET /api/orders". Repeat --endpoint '
+                "to cover several in one bundle.",
                 file=sys.stderr,
             )
             return 1
         samples = raw
 
     # ── Fetch ─────────────────────────────────────────────────────────────
+    fetched: List[Dict[str, Any]] = []
     try:
-        raw_data = _fetch_bundle(api_url, api_key, method=ep_method, path=ep_path, samples=samples)
+        for ep_method, ep_path in endpoints:
+            if ep_method:
+                print(f"Fetching {ep_method} {ep_path} ...", file=sys.stderr)
+            fetched.append(
+                _fetch_bundle(api_url, api_key, method=ep_method, path=ep_path, samples=samples)
+            )
     except RuntimeError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
+    raw_data = _merge_bundles(fetched)
 
     # ── Sort for determinism, then write ─────────────────────────────────
     try:
@@ -451,11 +459,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     pull_parser.add_argument(
         "--endpoint",
+        action="append",
         default=None,
         metavar="\"METHOD /path/template\"",
         help=(
-            'Filter to a single endpoint, e.g. "GET /api/users/{id}". '
-            "Passes method= and path= query parameters to the server."
+            'Filter to an endpoint, e.g. "GET /api/users/{id}". '
+            "Repeat to pull several into one bundle, which is how to get a "
+            "sample window for more than one endpoint, since --samples above 1 "
+            "is not served project-wide. Each endpoint is one request; the "
+            "responses are merged."
         ),
     )
     pull_parser.add_argument(
@@ -484,6 +496,62 @@ def main(argv: Optional[List[str]] = None) -> int:
 def _cli_entry() -> None:
     """Console script shim: calls ``main()`` and exits with its return code."""
     sys.exit(main())
+
+
+def _merge_bundles(parts: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Merge per-endpoint bundles into one, as if the server had returned it.
+
+    Needed because ``--samples`` above 1 requires an endpoint filter, so a
+    sample window covering several endpoints can only be assembled from one
+    response per endpoint. Doing it here keeps that off the user, who would
+    otherwise be hand-merging JSON.
+
+    Endpoints are keyed on ``(domain, method, path_template)``; a repeated key
+    has its stubs concatenated, with duplicate fingerprints dropped so an
+    overlapping filter cannot produce two stubs with the same identity. The
+    cursor is the maximum across parts, matching the server's own rule, and any
+    ``truncated`` report is carried through so a partial pull still says so.
+    """
+    if not parts:
+        return {"ok": True, "version": 1, "cursor": "0", "endpoints": []}
+    if len(parts) == 1:
+        return parts[0]
+
+    merged: Dict[Tuple[str, str, str], Dict[str, Any]] = {}
+    seen_fps: Dict[Tuple[str, str, str], set] = {}
+    truncated: Dict[str, Any] = {}
+    cursor = 0
+
+    for part in parts:
+        try:
+            cursor = max(cursor, int(part.get("cursor") or 0))
+        except (TypeError, ValueError):
+            pass
+        for key, value in (part.get("truncated") or {}).items():
+            truncated.setdefault(key, value)
+        for ep in part.get("endpoints") or []:
+            key = (ep.get("domain") or "", (ep.get("method") or "").upper(),
+                   ep.get("path_template") or "")
+            if key not in merged:
+                merged[key] = dict(ep, stubs=[])
+                seen_fps[key] = set()
+            for stub in ep.get("stubs") or []:
+                fp = stub.get("fingerprint") or ""
+                if fp in seen_fps[key]:
+                    continue
+                seen_fps[key].add(fp)
+                merged[key]["stubs"].append(stub)
+
+    out: Dict[str, Any] = {
+        "ok": True,
+        "version": parts[0].get("version", 1),
+        "cursor": str(cursor),
+        "generated_at": parts[-1].get("generated_at"),
+        "endpoints": list(merged.values()),
+    }
+    if truncated:
+        out["truncated"] = truncated
+    return out
 
 
 def fetch_bundle(

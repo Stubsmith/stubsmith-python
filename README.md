@@ -159,9 +159,20 @@ in this process: `False` before `install()`, `False` after `close()`, and
 Both are overridable (`url` and `backend_url`) for a project pointed at a
 different environment.
 
-It also starts exactly two daemon threads, named so they are identifiable in a
-thread dump: `stubsmith-sender` (drains the capture queue) and
-`stubsmith-rules-cache` (polls for rules).
+It also starts exactly two daemon threads: `stubsmith-sender` (drains the
+capture queue) and `stubsmith-rules-cache` (polls for rules).
+
+Those names are Python-level only. CPython does not set the operating system's
+thread name from `Thread(name=...)`, so a native thread dump or
+`/proc/<pid>/task/*/comm` shows `python` for both and tells you nothing. To
+check for them, read `threading.enumerate()`:
+
+```python
+[t.name for t in threading.enumerate() if t.name.startswith("stubsmith-")]
+```
+
+To assert that capture is armed, use `stubsmith.is_installed()` rather than
+inspecting threads at all.
 
 **An unreachable rules API degrades open, not closed.** A failed sync is
 logged at debug level and leaves the last known-good rules in place; it never
@@ -253,11 +264,11 @@ returning this response body:
 
 the SDK sends exactly this to `POST https://ingest.stubsmith.dev/v1/captures`,
 with `Authorization: Bearer <your project key>` and
-`User-Agent: stubsmith-sdk/0.3.0`:
+`User-Agent: stubsmith-sdk/0.4.0`:
 
 ```json
 {
-  "sdk_version": "0.3.0",
+  "sdk_version": "0.4.0",
   "sdk_masked": true,
   "sdk_rule_version": "0",
   "domain": "api.example.com",
@@ -407,14 +418,51 @@ recording unexercised, which is usually where the bugs are. Stubsmith keeps a
 rolling window of recent samples for each distinct response a shape returned, so
 the 429 and the 500 your API really produced are sitting there unused.
 
-`replay_all()` runs the block once per recorded response:
+`replay_all()` runs the block once per recorded response. Pass `statuses` to
+loop one kind:
 
 ```python
-def test_survives_every_recorded_response():
-    for attempt in stubsmith.replay_all():
+def test_parses_every_recorded_success():
+    for attempt in stubsmith.replay_all(statuses={200}):
         with attempt:
             result = connector.sync_orders()
-        assert result.ok or result.retried
+        assert result.orders is not None
+
+
+def test_degrades_on_every_recorded_failure():
+    for attempt in stubsmith.replay_all(statuses={429, 500}):
+        with attempt:
+            with pytest.raises((RateLimited, UpstreamUnavailable)):
+                connector.sync_orders()
+```
+
+**Filter by status unless you have a reason not to.** It decides what a red
+build means. Unfiltered, the loop feeds successes and failures into one test
+body, so the body has to hold for both; the day a 500 first appears in the
+window, assertions written when only 200s existed start failing, and the build
+breaks because the recording changed rather than because the code did. That is
+the opposite of what a failing test should tell you.
+
+Filtered, every pass is the same kind of response, the assertions can be
+specific, and a failure means your code cannot handle a response your API
+genuinely returns. The filter also bounds the work: unfiltered, the pass count
+is roughly (samples per response) x (distinct statuses) and grows with traffic
+on its own.
+
+A shape with recordings but none of the requested status raises `StubNotFound`,
+naming the filter and listing the statuses it does have. Serving a different
+one would make the loop assert against a response it was told to exclude.
+
+If you do loop unfiltered, assert only on what every recording shares:
+
+```python
+for attempt in stubsmith.replay_all():
+    with attempt:
+        try:
+            result = connector.sync_orders()
+        except (RateLimited, UpstreamUnavailable):
+            continue          # a recorded failure, surfaced as a declared one
+    assert result.orders is not None
 ```
 
 You never name an endpoint. Which ones a pass touches is discovered by running
@@ -471,9 +519,19 @@ stubsmith pull --endpoint "GET /admin/orders" --samples all \
 ```
 
 `--samples` above 1 requires `--endpoint`: the full window for a whole project
-is not served, and per-endpoint files are what you want anyway, since a
-project-wide bundle is capped at 2000 request shapes and silently drops the
-rest.
+is not served. Repeat `--endpoint` to cover several in one file, which is one
+request per endpoint, merged for you:
+
+```sh
+stubsmith pull --samples all \
+  --endpoint "GET /admin/orders" \
+  --endpoint "GET /admin/products" \
+  --out tests/bundles/admin.json
+```
+
+Per-endpoint scoping is what you want anyway: a project-wide bundle is capped
+at 2000 request shapes, and what it drops is reported in `truncated` rather
+than carried.
 
 Or fetch at collection time, with no file involved:
 
@@ -490,6 +548,12 @@ Fetch once at module level, not per test - it is a blocking HTTP call. It needs
 a live key wherever the tests run, and live recordings roll as the window rolls,
 so a failure you see today may not reproduce next week. Fetch live while
 iterating locally; commit a pulled bundle for CI.
+
+That split matters more under `replay_all()` than under `replay()`. With a
+committed bundle the loop runs the same passes until someone re-pulls, and a
+new recording arrives as a reviewable file change. Fetching live, the number of
+passes and the responses in them change as staging traffic changes, so a build
+can turn red with no commit behind it.
 
 ### Matching
 
@@ -573,6 +637,34 @@ small enough that a keyed hash could be reversed with a lookup table.  Use
 
 ## Changelog
 
+### 0.4.0
+
+**New: `replay_all(statuses={...})`.** Loops only recordings of the given
+statuses, so one loop can be exhaustive about success bodies and another about
+failure handling, with assertions specific to each. Without it a loop mixes
+both into one test body, and a status entering the window later breaks
+assertions written when only the other kind existed, turning a red build into
+news about the recording rather than about the code. A shape with recordings
+but none of the requested status raises `StubNotFound` naming the filter,
+rather than substituting a response the loop was told to exclude.
+
+**`stubsmith pull --endpoint` can be repeated.** `--samples` above 1 needs an
+endpoint, so covering several endpoints previously meant one pull per endpoint
+and merging the files by hand. Each endpoint is now one request and the
+responses are merged, deduplicating fingerprints and carrying `truncated`
+through.
+
+**Corrected: the background threads are not named at the OS level.** The
+egress section said they were "identifiable in a thread dump", which sent at
+least one reader to `/proc/<pid>/task/*/comm`, where CPython shows `python` for
+both because it does not set the native thread name from `Thread(name=...)`.
+The names are visible through `threading.enumerate()`; `is_installed()` is the
+supported way to check that capture is armed.
+
+Nothing in this release changes existing behaviour: `replay()` with no
+arguments serves the same response it did in 0.2.0, and a bundle pulled without
+`--samples` is byte-identical.
+
 ### 0.3.0
 
 **New: `replay_all()`, for looping every recorded response.** `replay()` serves
@@ -604,10 +696,6 @@ whole project is not served. `fetch_bundle()` fetches without going through a
 file, for a suite that wants current recordings at collection time. Previously
 the only route to that was importing `stubsmith.cli._fetch_bundle`, which is
 private and carried no compatibility promise.
-
-Nothing in this release changes existing behaviour: `replay()` with no
-arguments serves the same response it did in 0.2.0, and a bundle pulled without
-`--samples` is byte-identical.
 
 ### 0.2.0
 

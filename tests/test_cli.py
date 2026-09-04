@@ -807,3 +807,109 @@ class TestFetchBundle(unittest.TestCase):
         with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
             with self.assertRaisesRegex(ValueError, "positive integer"):
                 stubsmith.fetch_bundle("GET /x", samples="lots")
+
+
+# ---------------------------------------------------------------------------
+# Repeated --endpoint
+#
+# --samples above 1 is not served project-wide, so a sample window covering
+# several endpoints can only come from one request per endpoint. Without this
+# the user hand-merges JSON.
+# ---------------------------------------------------------------------------
+
+class TestMultipleEndpoints(unittest.TestCase):
+
+    @staticmethod
+    def _ep(path, fingerprint, domain="api.example.com", method="GET"):
+        return {
+            "domain": domain, "method": method, "path_template": path,
+            "is_dynamic": False, "fingerprint_value_paths": [],
+            "stubs": [{"fingerprint": fingerprint, "key_paths": [], "field_rules": [],
+                       "degraded": False, "variants": [
+                           {"status": 200, "count": 1, "duration_ms": 1,
+                            "headers": {}, "body": "{}"}]}],
+        }
+
+    def _pull(self, extra, responses):
+        import tempfile, json as _json
+        with tempfile.TemporaryDirectory() as d:
+            out = str(pathlib.Path(d) / "bundle.json")
+            with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
+                with patch("urllib.request.urlopen",
+                           side_effect=[_urlopen_mock(r) for r in responses]) as mopen:
+                    code = main(["pull", "--out", out, *extra])
+            written = _json.loads(pathlib.Path(out).read_text()) if code == 0 else None
+            urls = [c[0][0].full_url for c in mopen.call_args_list]
+        return code, written, urls
+
+    def test_two_endpoints_produce_two_requests_merged_into_one_bundle(self):
+        code, bundle, urls = self._pull(
+            ["--endpoint", "GET /a", "--endpoint", "GET /b", "--samples", "all"],
+            # Higher cursor first, so "max" and "last" cannot be confused.
+            [_make_bundle([self._ep("/a", "fpa")], cursor="9"),
+             _make_bundle([self._ep("/b", "fpb")], cursor="4")],
+        )
+        self.assertEqual(code, 0)
+        self.assertEqual(len(urls), 2)
+        self.assertIn("path=%2Fa", urls[0])
+        self.assertIn("path=%2Fb", urls[1])
+        self.assertTrue(all("samples=all" in u for u in urls))
+
+        paths = sorted(e["path_template"] for e in bundle["endpoints"])
+        self.assertEqual(paths, ["/a", "/b"])
+        # cursor is the max across parts, matching the server's own rule
+        self.assertEqual(bundle["cursor"], "9")
+
+    def test_the_same_endpoint_twice_does_not_duplicate_stubs(self):
+        """Overlapping filters must not yield two stubs with one identity."""
+        code, bundle, _ = self._pull(
+            ["--endpoint", "GET /a", "--endpoint", "GET /a"],
+            [_make_bundle([self._ep("/a", "fpa")]),
+             _make_bundle([self._ep("/a", "fpa")])],
+        )
+        self.assertEqual(code, 0)
+        self.assertEqual(len(bundle["endpoints"]), 1)
+        self.assertEqual(len(bundle["endpoints"][0]["stubs"]), 1)
+
+    def test_distinct_shapes_on_one_endpoint_are_both_kept(self):
+        code, bundle, _ = self._pull(
+            ["--endpoint", "GET /a", "--endpoint", "GET /a"],
+            [_make_bundle([self._ep("/a", "fp1")]),
+             _make_bundle([self._ep("/a", "fp2")])],
+        )
+        self.assertEqual(code, 0)
+        fps = sorted(s["fingerprint"] for s in bundle["endpoints"][0]["stubs"])
+        self.assertEqual(fps, ["fp1", "fp2"])
+
+    def test_a_truncated_report_survives_the_merge(self):
+        """A partial pull must still say it was partial."""
+        code, bundle, _ = self._pull(
+            ["--endpoint", "GET /a", "--endpoint", "GET /b"],
+            [_make_bundle([self._ep("/a", "fpa")]),
+             _make_bundle([self._ep("/b", "fpb")],
+                          truncated={"samples": {"limit": 25}})],
+        )
+        self.assertEqual(code, 0)
+        self.assertEqual(bundle["truncated"], {"samples": {"limit": 25}})
+
+    def test_a_single_endpoint_is_unchanged_by_the_merge_path(self):
+        one = _make_bundle([self._ep("/a", "fpa")])
+        code, bundle, urls = self._pull(["--endpoint", "GET /a"], [one])
+        self.assertEqual(code, 0)
+        self.assertEqual(len(urls), 1)
+        self.assertEqual(bundle["endpoints"], one["endpoints"])
+
+    def test_no_endpoint_still_pulls_the_whole_project(self):
+        code, _, urls = self._pull([], [_make_bundle()])
+        self.assertEqual(code, 0)
+        self.assertEqual(len(urls), 1)
+        self.assertNotIn("method=", urls[0])
+
+    def test_one_malformed_endpoint_fails_before_any_request(self):
+        with patch("sys.stderr", new_callable=io.StringIO) as err:
+            with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
+                with patch("urllib.request.urlopen") as mopen:
+                    code = main(["pull", "--endpoint", "GET /a", "--endpoint", "/b"])
+        self.assertEqual(code, 1)
+        self.assertIn("--endpoint", err.getvalue())
+        mopen.assert_not_called()
