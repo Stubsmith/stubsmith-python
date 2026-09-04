@@ -21,6 +21,7 @@ constructed and no captures are sent - existing behaviour is preserved.
 from __future__ import annotations
 
 import atexit
+import gzip
 import json
 import logging
 import os
@@ -33,7 +34,7 @@ import urllib.parse
 import urllib.request
 import weakref
 from collections.abc import Mapping
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from ._replay_state import is_replay_active
 from ._version import __version__
@@ -68,7 +69,24 @@ class _outermost_capture:
 _DEFAULT_URL          = "https://ingest.stubsmith.dev/v1/captures"
 _DEFAULT_BACKEND_URL  = "https://app.stubsmith.dev/api"
 _DEFAULT_TIMEOUT      = 5          # seconds for ingest POST
-_MAX_BODY_BYTES       = 64 * 1024  # 64 KiB default cap
+_MAX_BODY_BYTES       = 64 * 1024  # 64 KiB; no longer truncates, see PrivacyPipeline
+# Largest capture payload sent, measured on the serialised JSON before any
+# transport compression.
+#
+# KEEP IN SYNC with ingest's MAX_PAYLOAD_BYTES. The two must be the same number
+# applied to the same quantity - the payload, not a body - so that a payload
+# this side accepts is one ingest will accept. When the SDK's limit is the
+# larger, captures between the limits are masked, queued, transmitted and then
+# discarded by the server, which is worse than never sending them.
+_MAX_PAYLOAD_BYTES    = 10 * 1024 * 1024
+# Ceiling on bytes held in the send queue, distinct from its item count.
+# queue_maxsize alone bounds items, so with a 10 MiB payload ceiling a full
+# queue of 1000 could hold gigabytes inside the host application. The byte
+# budget is what actually protects the process the SDK is instrumenting.
+_MAX_QUEUE_BYTES      = 32 * 1024 * 1024
+# Payloads below this go uncompressed: gzip would cost CPU and a header to save
+# nothing, and can make a small payload larger.
+_COMPRESS_MIN_BYTES   = 1024
 _QUEUE_MAXSIZE        = 1000
 _FLUSH_TIMEOUT        = 5.0
 # At-exit budget, deliberately far below _FLUSH_TIMEOUT. An explicit flush() is
@@ -168,6 +186,9 @@ class StubSmith:
         enabled: bool = True,
         timeout: float = _DEFAULT_TIMEOUT,
         max_body_bytes: int = _MAX_BODY_BYTES,
+        max_payload_bytes: int = _MAX_PAYLOAD_BYTES,
+        max_queue_bytes: int = _MAX_QUEUE_BYTES,
+        compress: bool = True,
         sample_rate: float = 1.0,
         queue_maxsize: int = _QUEUE_MAXSIZE,
         flush_timeout: Optional[float] = None,
@@ -181,6 +202,17 @@ class StubSmith:
         self.enabled = enabled and bool(self.api_key)
         self.timeout = timeout
         self.max_body_bytes = max_body_bytes
+        self.max_payload_bytes = max_payload_bytes
+        self.max_queue_bytes = max_queue_bytes
+        self.compress = compress
+        # Bytes currently queued, guarded by _queue_bytes_lock. Tracked
+        # separately from the queue's item count because one is not a proxy for
+        # the other once payloads can be megabytes.
+        self._queue_bytes = 0
+        self._queue_bytes_lock = threading.Lock()
+        # Endpoints already reported as too large, so a hot loop logs once
+        # rather than on every call.
+        self._oversize_reported: set = set()
         self.sample_rate = max(0.0, min(1.0, sample_rate))
         self._debug = _resolve_debug_flag(debug)
         self._send_fn = _send_fn
@@ -469,15 +501,98 @@ class StubSmith:
     # ------------------------------------------------------------------
 
     def enqueue(self, payload: Dict[str, Any]) -> None:
-        """Non-blocking enqueue.  Drops the item if the queue is full."""
+        """Non-blocking enqueue.  Drops the item if the queue is full.
+
+        Also where the size decision is made. A payload over
+        *max_payload_bytes* has its bodies removed and ``bodies_omitted`` set,
+        rather than being truncated or dropped: ingest then records the
+        fingerprint, its occurrence count and the response variant, stores no
+        sample, and raises a dashboard alert. The shape stays visible; nothing
+        half-captured is stored.
+        """
         if not self.enabled:
             return
         if self.sample_rate < 1.0 and random.random() > self.sample_rate:
             return
+
+        payload, size = self._enforce_payload_ceiling(payload)
+
+        # Byte budget as well as item count. Without it, a full queue of
+        # megabyte payloads is gigabytes of memory in the application the SDK
+        # is instrumenting, which breaks the promise that capture cannot harm
+        # the host process.
+        with self._queue_bytes_lock:
+            if self._queue_bytes + size > self.max_queue_bytes:
+                if self._debug:
+                    logger.warning(
+                        "stubsmith: queue byte budget reached (%d bytes); capture dropped",
+                        self.max_queue_bytes,
+                    )
+                return
+            self._queue_bytes += size
         try:
             self._queue.put_nowait(payload)
         except queue.Full:
+            with self._queue_bytes_lock:
+                self._queue_bytes -= size
             pass  # drop silently
+
+    def _enforce_payload_ceiling(
+        self, payload: Dict[str, Any]
+    ) -> Tuple[Dict[str, Any], int]:
+        """Return *payload* (bodies dropped if oversized) and its size in bytes.
+
+        Bodies are never cut down: for JSON there is no byte count at which the
+        document still parses, and a partial body is a sample that looks
+        captured and is not. Over the ceiling both bodies go, together, and the
+        omission is declared so the server can record the shape without storing
+        anything.
+
+        Both bodies are dropped rather than only the larger, so the result does
+        not depend on which side happened to be big, and so a consumer never
+        has to reason about a capture with one body present.
+        """
+        try:
+            size = len(json.dumps(payload).encode("utf-8"))
+        except Exception:
+            # A payload that cannot be serialised will fail in the sender too;
+            # let that path report it rather than guessing at a size here.
+            return payload, 0
+        if size <= self.max_payload_bytes:
+            return payload, size
+
+        req_size = len(str(payload.get("req_body") or "").encode("utf-8", "replace"))
+        resp_size = len(str(payload.get("resp_body") or "").encode("utf-8", "replace"))
+
+        reduced = dict(payload)
+        reduced["req_body"] = None
+        reduced["resp_body"] = None
+        reduced["bodies_omitted"] = True
+        reduced["omitted_reason"] = "payload_too_large"
+        # Sizes travel with the capture so the dashboard can say how far over
+        # the limit the endpoint is, rather than only that it was over.
+        reduced["omitted_req_body_bytes"] = req_size
+        reduced["omitted_resp_body_bytes"] = resp_size
+
+        # Reported once per endpoint, at warning level rather than debug.
+        # Fire-and-forget must keep meaning "never break the application", not
+        # "never say anything": an endpoint that can never be captured is a
+        # permanent condition, and staying silent about it is what let the
+        # earlier truncation bug live unnoticed.
+        key = f"{payload.get('method', '')} {payload.get('path_template', '')}"
+        if key not in self._oversize_reported:
+            self._oversize_reported.add(key)
+            logger.warning(
+                "stubsmith: %s payload is %d bytes, over the %d byte limit; "
+                "request %d bytes, response %d bytes. The request shape is still "
+                "recorded, but no sample is stored for this endpoint.",
+                key, size, self.max_payload_bytes, req_size, resp_size,
+            )
+
+        try:
+            return reduced, len(json.dumps(reduced).encode("utf-8"))
+        except Exception:
+            return reduced, 0
 
     def flush(self, timeout: float = _FLUSH_TIMEOUT) -> None:
         """
@@ -534,6 +649,11 @@ class StubSmith:
         child's copy would deliver every pending capture twice.
         """
         self._queue = queue.Queue(maxsize=self._queue_maxsize)
+        # The inherited queue is discarded, so its byte reservations go with
+        # it. Leaving the counter at the parent's value would permanently
+        # shrink the child's budget by whatever was queued at fork time.
+        self._queue_bytes = 0
+        self._queue_bytes_lock = threading.Lock()
         self._send_failures = 0
         self._stop = threading.Event()
         self._worker = threading.Thread(
@@ -741,7 +861,21 @@ class StubSmith:
                             self.url,
                         )
             finally:
+                # Release the byte reservation taken in enqueue(), whether the
+                # send succeeded or not. Doing it in the finally-block is what
+                # keeps a permanently failing endpoint from leaking the budget
+                # until nothing can be queued at all.
+                self._release_queue_bytes(payload)
                 self._queue.task_done()
+
+    def _release_queue_bytes(self, payload: Dict[str, Any]) -> None:
+        """Return this payload's reservation to the queue byte budget."""
+        try:
+            size = len(json.dumps(payload).encode("utf-8"))
+        except Exception:
+            size = 0
+        with self._queue_bytes_lock:
+            self._queue_bytes = max(0, self._queue_bytes - size)
 
     def _do_send(self, payload: Dict[str, Any]) -> None:
         """Send one capture.  All exceptions must be caught by the caller."""
@@ -750,14 +884,39 @@ class StubSmith:
             return
 
         body = json.dumps(payload).encode("utf-8")
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}",
+            "User-Agent": _SDK_USER_AGENT,
+        }
+
+        # Compress above a threshold. Masked bodies are dominated by repeated
+        # "<masked>", so they compress by roughly two orders of magnitude: a
+        # 219 KB body measures 843 bytes gzipped. Close to free bandwidth for
+        # the application being instrumented and for ingest.
+        #
+        # The size ceiling stays in enqueue(), on the uncompressed payload.
+        # Limiting compressed bytes instead would be a decompression bomb: at
+        # these ratios a payload comfortably under the limit compressed can
+        # expand to hundreds of megabytes on the server.
+        #
+        # Below the threshold gzip costs CPU and a header to save nothing, and
+        # can make a small payload larger, so the result is only used when it
+        # is actually smaller.
+        if self.compress and len(body) >= _COMPRESS_MIN_BYTES:
+            try:
+                compressed = gzip.compress(body, compresslevel=6)
+                if len(compressed) < len(body):
+                    body = compressed
+                    headers["Content-Encoding"] = "gzip"
+            except Exception:
+                # Never fail a send over compression; ship it uncompressed.
+                pass
+
         req = urllib.request.Request(
             self.url,
             data=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.api_key}",
-                "User-Agent": _SDK_USER_AGENT,
-            },
+            headers=headers,
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310

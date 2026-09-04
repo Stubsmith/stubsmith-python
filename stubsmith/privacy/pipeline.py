@@ -18,7 +18,9 @@ instrumentation layer for every captured request/response pair.  It:
      (or :func:`~stubsmith.privacy.masking.mask_known` in legacy mode).
    - Unknown fingerprint → :func:`~stubsmith.privacy.masking.mask_all`
      (fail-closed) + ``novel=True``.
-7. Truncates bodies to *max_body_bytes* **after** masking (fingerprint is on
+7. (Bodies are never truncated. A body is recorded faithfully or not at all;
+   see :meth:`PrivacyPipeline.build_payload`.) Historically truncated to
+   *max_body_bytes* **after** masking (fingerprint is on
    the pre-truncation body).
 8. Assembles and returns the canonical wire-format payload dict, including
    four path-name arrays (names only, never values) for paths-only review.
@@ -62,7 +64,10 @@ class PrivacyPipeline:
         A :class:`~stubsmith.privacy.rules_cache.RulesCache` instance (already
         started).
     max_body_bytes:
-        Masked bodies are truncated to this many bytes before being placed in
+        Retained for compatibility and no longer truncates anything. Bodies are
+        recorded whole or omitted whole; the size decision is made against
+        *max_payload_bytes* on the assembled payload. Historically masked bodies
+        were truncated to this many bytes before being placed in
         the outbound payload.  ``0`` disables truncation.
     sdk_version:
         Override the ``sdk_version`` field in every payload.  Defaults to the
@@ -213,8 +218,21 @@ class PrivacyPipeline:
             resp_mb = resp_body  # same for response
 
         # -- 10. Truncate bodies (after masking, after placeholder restore) --
-        mb_out = self._truncate(mb)
-        resp_mb_out = self._truncate(resp_mb)
+        # Bodies are passed through whole.
+        #
+        # This used to truncate to max_body_bytes, which for JSON meant slicing
+        # mid-token and storing a document that cannot parse, with nothing in
+        # the payload to say so. A truncated capture was indistinguishable from
+        # an API that had genuinely returned malformed JSON, so a replayed
+        # sample raised JSONDecodeError and consumers attributed it upstream.
+        #
+        # There is no byte count at which a JSON document is still a JSON
+        # document, so the size question is answered at the payload level in
+        # client.enqueue(): under the ceiling the capture is sent whole, over it
+        # the bodies are dropped together and the omission is declared. Never a
+        # mutilated middle.
+        mb_out = mb
+        resp_mb_out = resp_mb
 
         # -- 11. Assemble payload ---------------------------------------
         cursor = self._cache.get_cursor()
@@ -322,14 +340,15 @@ class PrivacyPipeline:
     # Utility
     # ------------------------------------------------------------------
 
-    def _truncate(self, s: str) -> str:
-        """Truncate *s* to *max_body_bytes* UTF-8 bytes (idempotent)."""
+    def body_exceeds(self, s: str) -> bool:
+        """Report whether *s* is larger than *max_body_bytes*.
+
+        Reports; never modifies. Replaces the former ``_truncate``, which
+        sliced bytes and returned a document that could not parse.
+        """
         if not s or self._max_body_bytes <= 0:
-            return s or ""
-        encoded = s.encode("utf-8", errors="replace")
-        if len(encoded) <= self._max_body_bytes:
-            return s
-        return encoded[: self._max_body_bytes].decode("utf-8", errors="replace")
+            return False
+        return len(s.encode("utf-8", errors="replace")) > self._max_body_bytes
 
 
 # ---------------------------------------------------------------------------
