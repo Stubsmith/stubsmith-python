@@ -86,7 +86,10 @@ client.uninstrument()
 | `api_key`        | `$STUBSMITH_API_KEY`           | Bearer token; empty value auto-disables the client            |
 | `enabled`        | `True`                         | Master switch (also auto-disabled when `api_key` is absent)   |
 | `timeout`        | `5` (seconds)                  | HTTP timeout for ingest POST                                  |
-| `max_body_bytes` | `65536` (64 KiB)               | Truncate captured bodies to this size before sending          |
+| `max_body_bytes` | `65536` (64 KiB)               | Retained for compatibility; no longer truncates anything       |
+| `max_payload_bytes` | `10485760` (10 MiB)         | Largest capture payload sent. Over it, bodies are omitted rather than cut. Must match the server's limit |
+| `max_queue_bytes` | `33554432` (32 MiB)           | Ceiling on bytes held in the send queue, separate from `queue_maxsize` |
+| `compress`       | `True`                         | gzip capture payloads over 1 KiB before sending                |
 | `sample_rate`    | `1.0`                          | Fraction of calls to forward (0.0 - 1.0)                     |
 | `queue_maxsize`  | `1000`                         | Bound on the background queue; excess items are dropped       |
 | `flush_timeout`  | `$STUBSMITH_FLUSH_TIMEOUT` / `1.0` (seconds) | How long process exit waits for queued captures to drain. `0` disables the wait |
@@ -173,6 +176,47 @@ check for them, read `threading.enumerate()`:
 
 To assert that capture is armed, use `stubsmith.is_installed()` rather than
 inspecting threads at all.
+
+### Captures are compressed in transit
+
+Payloads over 1 KiB are sent with `Content-Encoding: gzip`. Masked bodies are
+dominated by repeated `"<masked>"`, so they compress by roughly two orders of
+magnitude: a 219 KB body measures 843 bytes gzipped, and a real capture
+measured 111,110 bytes uncompressed against 477 on the wire. Set
+`compress=False` to disable.
+
+The size ceiling is applied **before** compression, on the uncompressed
+payload, and stays there. Limiting compressed bytes instead would be a
+decompression bomb: at these ratios a payload comfortably under the limit
+compressed can expand to hundreds of megabytes on the server.
+
+### Bodies are never truncated
+
+A captured body is recorded whole or not at all. There is no byte count at
+which a JSON document is still a JSON document, so cutting one to fit produces
+a sample that cannot parse and is indistinguishable from an API that genuinely
+returned malformed JSON. Replaying such a sample raises `JSONDecodeError` and
+the blame lands upstream, on a failure that never happened.
+
+When an assembled payload exceeds `max_payload_bytes`, both bodies are dropped
+together and the capture is sent with `bodies_omitted`. The server records the
+request shape, its occurrence count and the response variant, stores no sample,
+and raises a dashboard alert. The endpoint stays visible; nothing half-captured
+is stored.
+
+Both bodies go, not only the larger, so the outcome does not depend on which
+side happened to be big and no consumer has to reason about a capture with one
+body present.
+
+The SDK logs a warning naming the endpoint and the sizes, once per endpoint
+rather than per call. Fire-and-forget means *never break your application*, not
+*never say anything*: an endpoint whose payloads are permanently too large is a
+condition worth knowing about, and silence is what kept the earlier truncation
+behaviour unnoticed.
+
+`max_payload_bytes` must match the server's limit, because they measure the
+same thing. If the SDK's were larger, captures between the two limits would be
+masked, queued, transmitted and then discarded by the server.
 
 **An unreachable rules API degrades open, not closed.** A failed sync is
 logged at debug level and leaves the last known-good rules in place; it never
@@ -264,11 +308,11 @@ returning this response body:
 
 the SDK sends exactly this to `POST https://ingest.stubsmith.dev/v1/captures`,
 with `Authorization: Bearer <your project key>` and
-`User-Agent: stubsmith-sdk/0.4.0`:
+`User-Agent: stubsmith-sdk/0.6.0`:
 
 ```json
 {
-  "sdk_version": "0.4.0",
+  "sdk_version": "0.6.0",
   "sdk_masked": true,
   "sdk_rule_version": "0",
   "domain": "api.example.com",
@@ -636,6 +680,46 @@ small enough that a keyed hash could be reversed with a lookup table.  Use
 ---
 
 ## Changelog
+
+### 0.6.0
+
+**Captures are gzipped in transit.** Payloads over 1 KiB are sent with
+`Content-Encoding: gzip`. Masked bodies compress by roughly two orders of
+magnitude, so this is close to free bandwidth; `compress=False` disables it.
+The size ceiling is still applied to the uncompressed payload, because limiting
+compressed bytes would let a payload under the limit expand to hundreds of
+megabytes on the server.
+
+**`body_encoding` is honoured on replay.** The field records that a stored body
+is not the response itself: the SDK sets it to `base64` when it substitutes a
+1x1 placeholder for an image. Replay ignored it, so an image recording was
+served as base64 text to code expecting image bytes. It is now decoded, and an
+unrecognised or malformed encoding falls back to the literal text rather than
+raising, so a stub's encoding cannot take a test suite down.
+
+### 0.5.0
+
+**Bodies are never truncated.** A body is recorded whole or not at all.
+Truncating to `max_body_bytes` sliced JSON mid-token and stored a document that
+could not parse, with nothing in the payload to say so, so a truncated capture
+looked exactly like an API that had returned malformed JSON. A replayed sample
+raised `JSONDecodeError` and consumers reported an upstream failure that had
+never happened.
+
+**New: `max_payload_bytes`, default 10 MiB.** The size question is answered on
+the assembled payload rather than on individual bodies, because that is the
+quantity the server can also measure. Over the ceiling both bodies are omitted
+and `bodies_omitted` is set: the server records the request shape, its
+occurrence count and the response variant, stores no sample, and raises a
+dashboard alert, so the endpoint stays visible without anything half-captured
+being stored. The SDK logs a warning naming the endpoint and sizes, once per
+endpoint.
+
+**New: `max_queue_bytes`, default 32 MiB.** `queue_maxsize` bounds items, not
+bytes, so with megabyte-scale payloads a full queue could hold gigabytes inside
+the application the SDK is instrumenting.
+
+`max_body_bytes` is still accepted and no longer truncates anything.
 
 ### 0.4.0
 

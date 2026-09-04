@@ -2139,3 +2139,67 @@ class TestReplayAllStatuses:
                 b.append(_get_orders().text)
         assert a == b
         assert len(a) == 5
+
+
+# ---------------------------------------------------------------------------
+# body_encoding
+#
+# The SDK sets resp_body_encoding='base64' when it substitutes a 1x1
+# placeholder for an image, so the stored value is base64 text rather than the
+# response bytes. Replay ignored the field, so an image recording replayed as
+# base64 text to code expecting image bytes.
+# ---------------------------------------------------------------------------
+
+class TestBodyEncoding:
+    _PNG = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+
+    def _bundle_with(self, body: str, encoding=None) -> Dict[str, Any]:
+        variant = _variant(200, body, headers={"content-type": "image/png"})
+        if encoding is not None:
+            variant["body_encoding"] = encoding
+        return _bundle(_endpoint("GET", "/logo.png", [_stub(_FP_EMPTY_GET, [variant])]))
+
+    def test_a_base64_body_is_decoded_to_the_original_bytes(self):
+        import base64 as _b64
+        bundle = self._bundle_with(_b64.b64encode(self._PNG).decode(), "base64")
+        with replay(bundle):
+            resp = requests.get(f"https://{_DOMAIN}/logo.png")
+        # The decisive assertion: the caller receives image bytes, not base64.
+        assert resp.content == self._PNG
+        assert resp.content.startswith(b"\x89PNG")
+
+    def test_a_body_without_encoding_is_served_verbatim(self):
+        bundle = self._bundle_with('{"a": 1}')
+        with replay(bundle):
+            resp = requests.get(f"https://{_DOMAIN}/logo.png")
+        assert resp.content == b'{"a": 1}'
+        assert resp.json() == {"a": 1}
+
+    def test_an_undecodable_base64_body_falls_back_instead_of_raising(self):
+        """A stub whose encoding is wrong should not take the test suite down;
+        serve the literal text and let the assertion fail on content."""
+        bundle = self._bundle_with("this is not base64 !!", "base64")
+        with replay(bundle):
+            resp = requests.get(f"https://{_DOMAIN}/logo.png")
+        assert resp.content == b"this is not base64 !!"
+
+    def test_an_unknown_encoding_is_served_verbatim(self):
+        bundle = self._bundle_with("plain text", "brotli-someday")
+        with replay(bundle):
+            resp = requests.get(f"https://{_DOMAIN}/logo.png")
+        assert resp.content == b"plain text"
+
+    def test_a_sample_carries_its_own_encoding(self):
+        """Recordings of one status can differ in encoding, so a sample's own
+        value must win rather than the variant's."""
+        import base64 as _b64
+        variant = _variant(200, "ignored", headers={"content-type": "image/png"})
+        variant["samples"] = [
+            {"capture_id": "img", "captured_at": "2026-09-05T00:00:00Z",
+             "headers": {"content-type": "image/png"},
+             "body": _b64.b64encode(self._PNG).decode(), "body_encoding": "base64"},
+        ]
+        bundle = _bundle(_endpoint("GET", "/logo.png", [_stub(_FP_EMPTY_GET, [variant])]))
+        with replay(bundle):
+            resp = requests.get(f"https://{_DOMAIN}/logo.png")
+        assert resp.content == self._PNG

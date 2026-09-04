@@ -96,7 +96,10 @@ after the outermost ``replay()`` context exits.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import datetime
+import logging
 import http.client
 import json
 import os
@@ -115,6 +118,8 @@ from .testing import _HOP_BY_HOP
 
 _DEFAULT_BUNDLE_ENV = "STUBSMITH_BUNDLE"
 _DEFAULT_BUNDLE_PATH = ".stubsmith/bundle.json"
+logger = logging.getLogger("stubsmith")
+
 _REFRESH_HINT = "  refresh the bundle:  stubsmith pull"
 
 # Type aliases
@@ -765,6 +770,9 @@ def _flatten_responses(variants: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "duration_ms": variant.get("duration_ms"),
                 "headers": variant.get("headers") or {},
                 "body": variant.get("body"),
+                # Carried through: _build_response needs it to know the stored
+                # text is not the body itself.
+                "body_encoding": variant.get("body_encoding"),
                 "capture_id": None,
                 "captured_at": None,
                 "body_capped": bool(variant.get("body_capped")),
@@ -777,6 +785,9 @@ def _flatten_responses(variants: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "duration_ms": sample.get("duration_ms", variant.get("duration_ms")),
                 "headers": sample.get("headers") or variant.get("headers") or {},
                 "body": sample.get("body"),
+                # The sample's own encoding wins: recordings of one status can
+                # differ if a content type changed between captures.
+                "body_encoding": sample.get("body_encoding", variant.get("body_encoding")),
                 "capture_id": sample.get("capture_id"),
                 "captured_at": sample.get("captured_at"),
                 "body_capped": bool(sample.get("body_capped")),
@@ -867,7 +878,7 @@ def _build_response(request: Any, variant: Dict[str, Any]) -> Any:
     raw_body = variant.get("body") or ""
     if isinstance(raw_body, (dict, list)):
         raw_body = json.dumps(raw_body)
-    body_bytes = raw_body.encode("utf-8") if raw_body else b""
+    body_bytes = _decode_body(raw_body, variant.get("body_encoding"))
     response._content = body_bytes
     response.encoding = "utf-8"
 
@@ -1013,6 +1024,35 @@ class _PassState:
             (key, self._cursors[key]) not in self._served_pairs
             for key in self._cursors
         )
+
+
+def _decode_body(raw_body: str, body_encoding: Optional[str]) -> bytes:
+    """Turn a stored body into the bytes the original response carried.
+
+    ``body_encoding`` records that the stored text is not the response itself.
+    The SDK sets it to ``"base64"`` when it substitutes a 1x1 placeholder for
+    an image, so the stored value is base64 text and the real body is the bytes
+    it decodes to.
+
+    This was previously ignored, so an image recording replayed as base64 text
+    to code expecting image bytes: a PNG decoder would fail on a body that
+    looked like ASCII. Two things had to be true to fix it, and neither was:
+    the bundle had to carry the field, and this had to act on it.
+
+    An unrecognised or malformed encoding falls back to the literal text rather
+    than raising. A replay that cannot decode a body should still serve the
+    request; failing the whole call over a stub's encoding would turn a
+    fixture problem into a test-suite outage.
+    """
+    if not raw_body:
+        return b""
+    if body_encoding == "base64":
+        try:
+            return base64.b64decode(raw_body, validate=True)
+        except (binascii.Error, ValueError):
+            logger.debug("stubsmith replay: body_encoding=base64 did not decode")
+            return raw_body.encode("utf-8")
+    return raw_body.encode("utf-8")
 
 
 # ---------------------------------------------------------------------------

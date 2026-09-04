@@ -8,6 +8,8 @@ so no real network is used.
 
 from __future__ import annotations
 
+import gzip
+import json
 import logging
 import os
 import sys
@@ -15,6 +17,7 @@ import time
 import threading
 import urllib.error
 from typing import Any, Dict, List
+from unittest.mock import patch
 
 import pytest
 import responses as responses_lib
@@ -1384,3 +1387,287 @@ def test_forked_child_starts_with_an_empty_queue(tmp_path):
     finally:
         gate.set()
         client.close()
+
+
+# ---------------------------------------------------------------------------
+# Bodies are never truncated
+#
+# Truncating to max_body_bytes sliced JSON mid-token and stored a document that
+# cannot parse, with nothing in the payload to say so. A truncated capture was
+# indistinguishable from an API that had genuinely returned malformed JSON, so
+# a replayed sample raised JSONDecodeError and consumers attributed it upstream.
+# ---------------------------------------------------------------------------
+
+def _big_json(n: int = 3000) -> str:
+    return json.dumps({"items": [{"sku": f"S{i:06d}", "qty": i} for i in range(n)]})
+
+
+class TestBodiesAreNeverTruncated:
+    @responses_lib.activate
+    def test_a_body_far_over_the_old_cap_is_captured_whole_and_parses(self):
+        body = _big_json()
+        assert len(body) > 64 * 1024, "fixture must exceed the old 64 KiB cap"
+        responses_lib.add(
+            responses_lib.GET, "https://api.example.com/stock",
+            body=body, status=200, content_type="application/json",
+        )
+
+        client, sink = make_client()
+        client.instrument_requests()
+        try:
+            requests.get("https://api.example.com/stock")
+            payload = sink.wait_for(1)[0]
+        finally:
+            client.uninstrument()
+            client.close()
+
+        # The decisive assertion: what we stored is a JSON document.
+        json.loads(payload["resp_body"])
+        assert not payload.get("bodies_omitted")
+
+    @responses_lib.activate
+    def test_max_body_bytes_no_longer_truncates(self):
+        """The kwarg is still accepted for compatibility and must not cut."""
+        body = _big_json()
+        responses_lib.add(
+            responses_lib.GET, "https://api.example.com/stock",
+            body=body, status=200, content_type="application/json",
+        )
+
+        client, sink = make_client(max_body_bytes=1024)
+        client.instrument_requests()
+        try:
+            requests.get("https://api.example.com/stock")
+            payload = sink.wait_for(1)[0]
+        finally:
+            client.uninstrument()
+            client.close()
+
+        assert len(payload["resp_body"]) > 1024
+        json.loads(payload["resp_body"])
+
+
+class TestPayloadCeiling:
+    def _payload(self, resp_body: str, path: str = "/huge") -> Dict[str, Any]:
+        return {
+            "method": "GET", "path_template": path, "sdk_masked": True,
+            "req_body": "", "resp_body": resp_body,
+        }
+
+    def test_a_payload_over_the_ceiling_omits_both_bodies(self):
+        """Both bodies, not just the larger, so the result does not depend on
+        which side happened to be big and no consumer has to reason about a
+        capture with one body present."""
+        client, sink = make_client(max_payload_bytes=64 * 1024)
+        try:
+            client.enqueue(self._payload(_big_json(4000)))
+            payload = sink.wait_for(1)[0]
+        finally:
+            client.close()
+
+        assert payload["bodies_omitted"] is True
+        assert payload["omitted_reason"] == "payload_too_large"
+        assert payload["resp_body"] is None
+        assert payload["req_body"] is None
+        # Sizes travel with it so the dashboard can say how far over it is.
+        assert payload["omitted_resp_body_bytes"] > 64 * 1024
+
+    def test_the_capture_is_still_sent_so_the_shape_is_recorded(self):
+        """Dropping the event would hide the endpoint entirely; ingest records
+        the fingerprint and occurrence count from this metadata."""
+        client, sink = make_client(max_payload_bytes=64 * 1024)
+        try:
+            client.enqueue(self._payload(_big_json(4000)))
+            payload = sink.wait_for(1)[0]
+        finally:
+            client.close()
+        assert payload["method"] == "GET"
+        assert payload["path_template"] == "/huge"
+
+    def test_a_payload_under_the_ceiling_is_untouched(self):
+        client, sink = make_client(max_payload_bytes=10 * 1024 * 1024)
+        try:
+            client.enqueue(self._payload(json.dumps({"a": 1})))
+            payload = sink.wait_for(1)[0]
+        finally:
+            client.close()
+        assert "bodies_omitted" not in payload
+        assert payload["resp_body"] == json.dumps({"a": 1})
+
+    def test_the_warning_is_emitted_once_per_endpoint(self, caplog):
+        """A hot loop must not flood stderr, but silence is what let the
+        truncation bug live unnoticed, so it must be reported once."""
+        client, sink = make_client(max_payload_bytes=64 * 1024)
+        try:
+            with caplog.at_level(logging.WARNING, logger="stubsmith"):
+                for _ in range(5):
+                    client.enqueue(self._payload(_big_json(4000)))
+                client.enqueue(self._payload(_big_json(4000), path="/other"))
+            sink.wait_for(6)
+        finally:
+            client.close()
+
+        oversize = [r for r in caplog.records if "over the" in r.message]
+        assert len(oversize) == 2, [r.message for r in oversize]
+        assert any("/huge" in r.getMessage() for r in oversize)
+        assert any("/other" in r.getMessage() for r in oversize)
+
+
+class TestQueueByteBudget:
+    """queue_maxsize bounds items, not bytes. With a megabyte-scale payload
+    ceiling a full queue could hold gigabytes inside the host application."""
+
+    def test_the_budget_blocks_a_capture_that_would_exceed_it(self):
+        sink = CaptureSink()
+        client = StubSmith(
+            url="http://stubsmith.test/v1/captures", api_key="sk-test",
+            _send_fn=sink, max_queue_bytes=4096, max_payload_bytes=10 * 1024 * 1024,
+        )
+        # Stop the worker so nothing drains and the budget stays committed.
+        client._stop.set()
+        client._worker.join(timeout=2)
+        try:
+            client.enqueue({"method": "GET", "path_template": "/a",
+                            "resp_body": "x" * 8192})
+            assert client._queue.qsize() == 0, "over-budget capture must not be queued"
+            client.enqueue({"method": "GET", "path_template": "/b",
+                            "resp_body": "y" * 16})
+            assert client._queue.qsize() == 1, "a small capture must still fit"
+        finally:
+            client.close()
+
+    def test_the_budget_is_released_after_a_send(self):
+        client, sink = make_client(max_queue_bytes=1024 * 1024)
+        try:
+            for _ in range(5):
+                client.enqueue({"method": "GET", "path_template": "/a",
+                                "resp_body": "x" * 1000})
+            sink.wait_for(5)
+            client.flush(timeout=5)
+            deadline = time.monotonic() + 2
+            while client._queue_bytes != 0 and time.monotonic() < deadline:
+                time.sleep(0.02)
+            assert client._queue_bytes == 0, client._queue_bytes
+        finally:
+            client.close()
+
+    def test_the_budget_is_released_even_when_every_send_fails(self):
+        """A permanently failing endpoint must not leak the budget until
+        nothing can be queued at all."""
+        client, sink = make_client(raise_on_send=True, max_queue_bytes=1024 * 1024)
+        try:
+            for _ in range(5):
+                client.enqueue({"method": "GET", "path_template": "/a",
+                                "resp_body": "x" * 1000})
+            deadline = time.monotonic() + 3
+            while client._queue_bytes != 0 and time.monotonic() < deadline:
+                time.sleep(0.02)
+            assert client._queue_bytes == 0, client._queue_bytes
+        finally:
+            client.close()
+
+
+# ---------------------------------------------------------------------------
+# gzip on the capture POST
+# ---------------------------------------------------------------------------
+
+class TestSendCompression:
+    def _post(self, client, payload):
+        """Capture the urllib Request the client would send."""
+        seen = {}
+
+        class _Resp:
+            def read(self):
+                return b"{}"
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+
+        def _urlopen(req, timeout=None):
+            seen["headers"] = {k.lower(): v for k, v in req.headers.items()}
+            seen["body"] = req.data
+            return _Resp()
+
+        with patch("urllib.request.urlopen", _urlopen):
+            client._do_send(payload)
+        return seen
+
+    def test_a_large_payload_is_gzipped(self):
+        client = StubSmith(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+        try:
+            payload = {"resp_body": json.dumps({"items": [{"v": "<masked>"}] * 3000})}
+            raw = json.dumps(payload).encode()
+            seen = self._post(client, payload)
+
+            assert seen["headers"].get("Content-encoding".lower()) == "gzip"
+            assert gzip.decompress(seen["body"]) == raw
+            # Masked bodies are near-pure redundancy; the point is the ratio.
+            assert len(seen["body"]) < len(raw) / 10
+        finally:
+            client.close()
+
+    def test_a_small_payload_is_not_gzipped(self):
+        """Below the threshold gzip costs CPU and a header to save nothing."""
+        client = StubSmith(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+        try:
+            payload = {"resp_body": '{"a": 1}'}
+            seen = self._post(client, payload)
+            assert "content-encoding" not in seen["headers"]
+            assert seen["body"] == json.dumps(payload).encode()
+        finally:
+            client.close()
+
+    def test_a_compressible_payload_below_the_threshold_is_left_alone(self):
+        """The distinguishing case for the threshold.
+
+        A few hundred bytes of repeated text does compress, so the
+        "only use it if smaller" guard would accept it. The threshold is what
+        keeps the SDK from paying compression cost on payloads where the saving
+        is a few hundred bytes and irrelevant.
+        """
+        client = StubSmith(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+        try:
+            payload = {"resp_body": "<masked>" * 100}  # ~800 bytes, very compressible
+            raw = json.dumps(payload).encode()
+            assert len(raw) < 1024, len(raw)
+            assert len(gzip.compress(raw)) < len(raw), "fixture must be compressible"
+
+            seen = self._post(client, payload)
+            assert "content-encoding" not in seen["headers"]
+            assert seen["body"] == raw
+        finally:
+            client.close()
+
+    def test_compression_can_be_disabled(self):
+        client = StubSmith(url="http://stubsmith.test/v1/captures", api_key="sk-test",
+                           compress=False)
+        try:
+            payload = {"resp_body": json.dumps({"items": [{"v": "<masked>"}] * 3000})}
+            seen = self._post(client, payload)
+            assert "content-encoding" not in seen["headers"]
+            assert seen["body"] == json.dumps(payload).encode()
+        finally:
+            client.close()
+
+    def test_the_ceiling_is_applied_before_compression(self):
+        """Limiting compressed bytes would be a decompression bomb: masked data
+        compresses ~200:1, so a payload under the limit compressed can expand to
+        hundreds of megabytes on the server."""
+        sink = CaptureSink()
+        client = StubSmith(
+            url="http://stubsmith.test/v1/captures", api_key="sk-test",
+            _send_fn=sink, max_payload_bytes=64 * 1024,
+        )
+        try:
+            # Compresses to far under the ceiling, but is over it uncompressed.
+            body = json.dumps({"items": [{"v": "<masked>"} for _ in range(20000)]})
+            assert len(gzip.compress(body.encode())) < 64 * 1024
+            client.enqueue({"method": "GET", "path_template": "/x",
+                            "req_body": "", "resp_body": body})
+            payload = sink.wait_for(1)[0]
+            assert payload["bodies_omitted"] is True, (
+                "the ceiling must be judged on uncompressed bytes"
+            )
+        finally:
+            client.close()
