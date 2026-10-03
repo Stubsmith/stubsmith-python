@@ -560,6 +560,237 @@ def test_do_send_sets_sdk_user_agent():
 
 
 # ---------------------------------------------------------------------------
+# Ingest refusals (ok:false) are reported once per code, never silent
+# ---------------------------------------------------------------------------
+
+_LIMIT_BODY = (
+    b'{"ok": false, "error": "fingerprint_limit_reached", '
+    b'"message": "Fingerprint limit reached"}'
+)
+_PII_BODY = b'{"ok": false, "quarantined": true, "reason": "pii_leak"}'
+_PAYLOAD = {"source": "test", "status": 200, "duration": 1}
+
+
+def _fake_resp(body: bytes, status: int = 200):
+    from unittest.mock import MagicMock
+
+    resp = MagicMock()
+    resp.__enter__ = lambda s: s
+    resp.__exit__ = MagicMock(return_value=False)
+    resp.read = MagicMock(return_value=body)
+    resp.status = status
+    resp.getcode = MagicMock(return_value=status)
+    return resp
+
+
+def _http_error(code: int, body: bytes):
+    import io
+
+    return urllib.error.HTTPError(
+        "http://stubsmith.test/v1/captures", code, "err", {}, io.BytesIO(body)
+    )
+
+
+def _wait_for_worker(client, timeout: float = 5.0) -> None:
+    """Block until the worker has finished every queued send and its report.
+
+    flush() returns once the queue is empty, which is when the worker has
+    dequeued, not when the send finished. task_done() runs after the report.
+    """
+    deadline = time.monotonic() + timeout
+    while client._queue.unfinished_tasks:
+        if time.monotonic() > deadline:
+            raise AssertionError("worker did not finish queued sends in time")
+        time.sleep(0.01)
+
+
+def _refusal_records(caplog):
+    return [r for r in caplog.records if r.name == "stubsmith" and r.levelno == logging.WARNING]
+
+
+def _new_client(debug: bool = False):
+    return StubSmith(
+        url="http://stubsmith.test/v1/captures", api_key="sk-refusal-test", debug=debug
+    )
+
+
+def test_do_send_warns_on_200_ok_false_once(caplog):
+    client = _new_client()
+    with caplog.at_level(logging.WARNING, logger="stubsmith"):
+        with patch("stubsmith.client.urllib.request.urlopen", return_value=_fake_resp(_LIMIT_BODY)):
+            results = [client._do_send(dict(_PAYLOAD)) for _ in range(3)]
+    client.close()
+
+    assert results == [None, None, None]
+    recs = [r for r in _refusal_records(caplog) if "fingerprint_limit_reached" in r.getMessage()]
+    assert len(recs) == 1
+    msg = recs[0].getMessage()
+    assert msg.startswith("stubsmith: ingest refused a capture: fingerprint_limit_reached (HTTP 200). ")
+    assert "Fingerprint limit reached. " in msg and "  " not in msg and ".." not in msg
+    assert msg.endswith("Reported once per process.")
+    assert "sk-refusal-test" not in msg
+    assert client._send_failures == 0
+
+
+def test_drain_warns_via_enqueue_flush_once(caplog):
+    client = _new_client()
+    with caplog.at_level(logging.WARNING, logger="stubsmith"):
+        with patch("stubsmith.client.urllib.request.urlopen", return_value=_fake_resp(_LIMIT_BODY)):
+            for _ in range(3):
+                client.enqueue(dict(_PAYLOAD))
+            client.flush()
+            _wait_for_worker(client)
+    client.close()
+
+    recs = [r for r in _refusal_records(caplog) if "fingerprint_limit_reached" in r.getMessage()]
+    assert len(recs) == 1
+    assert client._send_failures == 0
+
+
+def test_second_distinct_code_via_http_error_warns_separately(caplog):
+    client = _new_client()
+    with caplog.at_level(logging.WARNING, logger="stubsmith"):
+        with patch("stubsmith.client.urllib.request.urlopen", return_value=_fake_resp(_LIMIT_BODY)):
+            client.enqueue(dict(_PAYLOAD))
+            client.flush()
+            _wait_for_worker(client)
+        for _ in range(2):
+            with patch(
+                "stubsmith.client.urllib.request.urlopen",
+                side_effect=lambda *a, **k: (_ for _ in ()).throw(_http_error(422, _PII_BODY)),
+            ):
+                client.enqueue(dict(_PAYLOAD))
+                client.flush()
+                _wait_for_worker(client)
+    client.close()
+
+    msgs = [r.getMessage() for r in _refusal_records(caplog)]
+    assert len([m for m in msgs if "fingerprint_limit_reached" in m]) == 1
+    pii = [m for m in msgs if "pii_leak" in m]
+    assert len(pii) == 1 and "422" in pii[0]
+    # HTTP errors still count as send failures (existing behaviour).
+    assert client._send_failures == 2
+
+
+# Guards against raising only; would pass with a no-op reporter.
+def test_unreadable_http_error_body_cannot_escape(caplog):
+    class _Broken:
+        def read(self, *a):
+            raise OSError("boom")
+
+        def close(self):
+            pass
+
+    err = urllib.error.HTTPError("http://stubsmith.test/", 500, "err", {}, _Broken())
+    client = _new_client()
+    with caplog.at_level(logging.WARNING, logger="stubsmith"):
+        with patch("stubsmith.client.urllib.request.urlopen", side_effect=err):
+            client.enqueue(dict(_PAYLOAD))
+            client.flush()
+            _wait_for_worker(client)
+    client.close()
+
+    assert client._send_failures == 1
+    assert _refusal_records(caplog) == []
+
+
+# Guards against over-warning only; would pass with a no-op reporter. The
+# positive tests above are the load-bearing ones.
+@pytest.mark.parametrize("body", [b'{"ok": true}', b"", b"not json", b"[1, 2]", b'{"ok": "no"}'])
+def test_non_refusal_bodies_do_not_warn(caplog, body):
+    client = _new_client()
+    with caplog.at_level(logging.WARNING, logger="stubsmith"):
+        with patch("stubsmith.client.urllib.request.urlopen", return_value=_fake_resp(body)):
+            assert client._do_send(dict(_PAYLOAD)) is None
+    client.close()
+
+    assert _refusal_records(caplog) == []
+
+
+def test_refusal_warning_dedupe_is_controlled_by_warned_set(caplog):
+    from stubsmith import client as client_mod
+
+    client_mod._warned_ingest_codes.add("fingerprint_limit_reached")
+    client = _new_client()
+    with caplog.at_level(logging.WARNING, logger="stubsmith"):
+        with patch("stubsmith.client.urllib.request.urlopen", return_value=_fake_resp(_LIMIT_BODY)):
+            client._do_send(dict(_PAYLOAD))
+    assert _refusal_records(caplog) == []
+
+    client_mod._reset_ingest_warnings()
+    with caplog.at_level(logging.WARNING, logger="stubsmith"):
+        with patch("stubsmith.client.urllib.request.urlopen", return_value=_fake_resp(_LIMIT_BODY)):
+            client._do_send(dict(_PAYLOAD))
+    client.close()
+    assert len(_refusal_records(caplog)) == 1
+
+
+def test_debug_mode_logs_body_for_every_refusal(caplog):
+    client = _new_client(debug=True)
+    with caplog.at_level(logging.WARNING, logger="stubsmith"):
+        with patch("stubsmith.client.urllib.request.urlopen", return_value=_fake_resp(_LIMIT_BODY)):
+            for _ in range(3):
+                client._do_send(dict(_PAYLOAD))
+    client.close()
+
+    msgs = [r.getMessage() for r in _refusal_records(caplog)]
+    assert len([m for m in msgs if "body=" in m and "Fingerprint limit reached" in m]) == 3
+    assert len([m for m in msgs if "once per process" in m]) == 1
+
+
+def test_refusal_warns_against_real_http_server(caplog):
+    import http.server
+
+    responses_by_path = {
+        "/limit": (200, _LIMIT_BODY),
+        "/pii": (422, _PII_BODY),
+    }
+
+    class _Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            status, body = responses_by_path[self.path]
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), _Handler)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        with caplog.at_level(logging.WARNING, logger="stubsmith"):
+            limit_client = StubSmith(url=f"{base}/limit", api_key="sk-real-server", debug=False)
+            for _ in range(3):
+                limit_client.enqueue(dict(_PAYLOAD))
+            limit_client.flush()
+            _wait_for_worker(limit_client)
+            limit_client.close()
+
+            pii_client = StubSmith(url=f"{base}/pii", api_key="sk-real-server", debug=False)
+            for _ in range(3):
+                pii_client.enqueue(dict(_PAYLOAD))
+            pii_client.flush()
+            _wait_for_worker(pii_client)
+            pii_client.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        server_thread.join(2)
+
+    msgs = [r.getMessage() for r in _refusal_records(caplog)]
+    assert len([m for m in msgs if "fingerprint_limit_reached" in m]) == 1
+    assert len([m for m in msgs if "pii_leak" in m]) == 1
+    assert limit_client._send_failures == 0
+    assert pii_client._send_failures == 3
+
+
+# ---------------------------------------------------------------------------
 # Test 10 - User-Agent header is sent on rules-cache GET requests
 # ---------------------------------------------------------------------------
 

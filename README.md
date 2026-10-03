@@ -264,6 +264,16 @@ as soon as a send fails, so an unreachable endpoint costs about a second rather
 than the full budget. Set `STUBSMITH_FLUSH_TIMEOUT=0` in a serverless function or
 anywhere else exit latency is billed; captures still in the queue are discarded.
 
+Errors are swallowed, refusals are not. Ingest can accept the HTTP request and
+still decline the capture: at the fingerprint cap it answers `200` with
+`{"ok": false, "error": "fingerprint_limit_reached"}`, and a quarantined or
+rejected shape answers `422` with the same `ok: false` body. The SDK reads that
+body and logs one `WARNING` on the `stubsmith` logger per distinct error code
+per process, naming the code, the HTTP status, the consequence and the remedy.
+Once per code rather than per capture, so a capped project cannot flood a test
+run; never raised, so the fire-and-forget contract holds. With `debug` on, the
+full response body is also logged for every refusal.
+
 ---
 
 ## How it works
@@ -691,6 +701,18 @@ small enough that a keyed hash could be reversed with a lookup table.  Use
 ---
 
 ## Changelog
+
+### 0.7.0
+
+**Ingest refusals are reported.** Ingest can accept the request and still
+decline the capture: at the fingerprint cap it answers `200` with
+`{"ok": false, "error": "fingerprint_limit_reached"}`, and a quarantined or
+rejected shape answers `422` with the same `ok: false` body. The SDK read the
+status and discarded the body, so a project at its cap recorded nothing new and
+said nothing, even in debug mode. The body is now parsed and each distinct error
+code is logged once per process at `WARNING` on the `stubsmith` logger, with the
+code, HTTP status, consequence and remedy. Nothing is raised and nothing blocks.
+With `debug` on, the full response body is also logged for every refusal.
 
 ### 0.6.0
 
