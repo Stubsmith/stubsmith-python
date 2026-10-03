@@ -1,7 +1,7 @@
-# StubSmith Python SDK
+# Stubsmith Python SDK
 
 Instrument **outbound** HTTP calls made by your Python application and forward
-them, request **and** response, to the StubSmith ingest service for capture,
+them, request **and** response, to the Stubsmith ingest service for capture,
 anonymization, and replay.
 
 Supports both `requests` and `httpx` (sync and async).  Sending is
@@ -359,16 +359,27 @@ with `Authorization: Bearer <your project key>` and
 
 Reading it:
 
-- **No original value appears anywhere**, including in the URL: the path is
-  templated (`1042` becomes `{id}`) and query *values* are masked while their
+- **No original value appears in this capture**, including in the URL: the path
+  is templated (`1042` becomes `{id}`) and query *values* are masked while their
   names survive. `paid: true` masked to `false` because a boolean's masked form
-  is `false`, not because the value was read.
+  is `false`, not because the value was read. The one literal value here is
+  `"Accept": "*/*"`, an allowlisted transport header a stub needs in order to be
+  replayed.
 - **`key_paths` and `resp_key_paths` are names only.** They are what you review
   in the Request Types editor, and what a `field_rules` entry addresses.
+- **`resp_fingerprint` is the status code followed by a 16-character digest.**
+  `2004bc1bf2471fe533f` is `200` and `4bc1bf2471fe533f`, not a 19-character
+  hash: the same response shape returned with a different status is a different
+  recorded response. `req_fingerprint` carries no prefix.
 - **`novel: true` and `sdk_rule_version: "0"`** say no approved rules were in
   effect, which is why everything is masked. Once you approve the fingerprint
   with `keep` rules, the kept scalars appear here verbatim - that is the point
-  of the review step, and the only way a real value ever reaches Stubsmith.
+  of the review step, and the only way a real value deliberately reaches
+  Stubsmith. A keep rule can sit on a body field, a query parameter or a header.
+  Two things fall outside it: a path segment that neither the normalisation
+  heuristic (all digits, UUID-shaped, or 16 or more hex characters) nor one of
+  your curated request-type templates collapses, which is sent as written, and
+  the allowlisted transport headers above.
 - **`resp_value_types` reports recognizable formats, not content.** `"iban"`
   means the string parsed as an IBAN. Character composition is never inspected,
   so no label is derived from the value beyond its format.
@@ -390,7 +401,7 @@ body field (e.g. `{"action": "login"}` vs `{"action": "delete_user"}`) therefore
 produce a single fingerprint, which means a single review and a single privacy-rule
 set for both variants.
 
-Enable value discrimination on `action` in the StubSmith UI or via the API and the
+Enable value discrimination on `action` in the Stubsmith UI or via the API and the
 SDK will automatically include that field's value in the hash:
 
 ```python
