@@ -7,7 +7,7 @@ name = "stubsmith"
 # Read from stubsmith/_version.py, the single source of truth also used by the
 # SDK's User-Agent. A hardcoded literal here had already drifted behind it.
 dynamic = ["version"]
-description = "StubSmith Python SDK - instrument outbound HTTP calls for capture & replay"
+description = "Stubsmith Python SDK - instrument outbound HTTP calls for capture & replay"
 readme = "README.md"
 license = { text = "MIT" }
 # 3.8 has been end-of-life since October 2024 and was never exercised by CI, so
