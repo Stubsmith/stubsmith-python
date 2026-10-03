@@ -48,6 +48,16 @@ def _fresh_install_registry():
 
 
 @pytest.fixture(autouse=True)
+def _fresh_ingest_warnings():
+    """Refusal warnings are once per process; each test starts with none spent."""
+    from stubsmith.client import _reset_ingest_warnings
+
+    _reset_ingest_warnings()
+    yield
+    _reset_ingest_warnings()
+
+
+@pytest.fixture(autouse=True)
 def _no_network(monkeypatch):
     for var in _CLEARED:
         monkeypatch.delenv(var, raising=False)

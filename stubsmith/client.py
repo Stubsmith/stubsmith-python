@@ -41,6 +41,132 @@ from ._version import __version__
 
 logger = logging.getLogger("stubsmith")
 
+# Ingest refusals (an ok:false body, on a 200 or on a 4xx) used to vanish: the
+# send "succeeded", so nothing was logged even in debug mode, and a project
+# that had hit its fingerprint limit silently recorded nothing new. Each
+# distinct refusal code is now reported once per process at WARNING level.
+# Once, not per capture, so a refused endpoint cannot flood the application's
+# logs; the lock is because the worker thread and tests both touch the set.
+_warned_ingest_codes: set = set()
+_warned_ingest_lock = threading.Lock()
+
+_INGEST_REMEDIES = {
+    "fingerprint_limit_reached": (
+        "New endpoint shapes are not being recorded until the plan is "
+        "upgraded or unused fingerprints are deleted in the dashboard."
+    ),
+    "pii_leak": (
+        "The capture was quarantined because a value looked like personal "
+        "data. Check the field rules and the project placeholder domain."
+    ),
+    "rejected": (
+        "This endpoint shape was rejected in the dashboard; nothing is "
+        "recorded for it."
+    ),
+    "body_too_large": (
+        "The capture was over the size limit and was not recorded. Lower "
+        "max_payload_bytes or exclude the endpoint."
+    ),
+    "sdk_required": "Upgrade the stubsmith SDK to a current version.",
+    "rate limit exceeded": (
+        "Captures are being sent faster than the plan allows; some are "
+        "dropped. Reduce traffic or sample, or upgrade the plan."
+    ),
+}
+_INGEST_REMEDY_DEFAULT = "Check the project in the StubSmith dashboard."
+_INGEST_DEBUG_BODY_CHARS = 2048
+_INGEST_ERROR_READ_BYTES = 64 * 1024
+_INGEST_MAX_WARNED_CODES = 64
+
+
+def _reinit_ingest_lock_after_fork() -> None:
+    # A fork while another thread holds the lock would leave it locked forever
+    # in the child, blocking its sender thread on the first refusal. The warned
+    # set is inherited on purpose: a pre-fork worker pool (gunicorn) then warns
+    # once overall rather than once per worker.
+    global _warned_ingest_lock
+    _warned_ingest_lock = threading.Lock()
+
+
+if hasattr(os, "register_at_fork"):          # absent on Windows
+    os.register_at_fork(after_in_child=_reinit_ingest_lock_after_fork)
+
+
+def _reset_ingest_warnings() -> None:
+    """Forget which refusal codes were already warned about (for tests)."""
+    with _warned_ingest_lock:
+        _warned_ingest_codes.clear()
+
+
+def _report_ingest_refusal(raw: Any, status: Any, debug: bool) -> None:
+    """
+    Log a WARNING when an ingest response body says ``ok: false``.
+
+    Never raises. A malformed, empty or non-JSON body is ignored. Only the
+    parsed error/reason/message fields and the HTTP status are logged, never
+    the API key or any payload content.
+    """
+    try:
+        if isinstance(raw, (bytes, bytearray)):
+            text = bytes(raw).decode("utf-8", errors="replace")
+        elif isinstance(raw, str):
+            text = raw
+        else:
+            return
+        if not text.strip():
+            return
+        try:
+            body = json.loads(text)
+        except Exception:
+            return
+        if not isinstance(body, dict) or body.get("ok") is not False:
+            return
+
+        if body.get("error"):
+            code = str(body.get("error"))[:80]
+        elif body.get("reason"):
+            code = str(body.get("reason"))[:80]
+        elif body.get("rejected"):
+            code = "rejected"
+        else:
+            code = "unknown"
+        status_str = status if isinstance(status, int) else "unknown"
+
+        # Debug mode logs the full decoded body for every refusal, because
+        # when diagnosing why nothing is arriving the raw answer is the most
+        # useful thing to see. Outside debug mode only the once-per-code
+        # summary below is emitted, built from the parsed fields.
+        if debug:
+            logger.warning(
+                "stubsmith: ingest refused capture - status=%s body=%s",
+                status_str, text[:_INGEST_DEBUG_BODY_CHARS],
+            )
+
+        with _warned_ingest_lock:
+            if code in _warned_ingest_codes:
+                return
+            # A server-controlled code that varies per response must not turn
+            # into one warning per variant; past the cap, new codes stay quiet.
+            if len(_warned_ingest_codes) >= _INGEST_MAX_WARNED_CODES:
+                return
+            _warned_ingest_codes.add(code)
+
+        message = body.get("message")
+        detail = ""
+        if isinstance(message, str) and message.strip():
+            detail = message.strip()[:200]
+            if not detail.endswith((".", "!", "?")):
+                detail += "."
+            detail += " "
+        logger.warning(
+            "stubsmith: ingest refused a capture: %s (HTTP %s). %s%s "
+            "Reported once per process.",
+            code, status_str, detail,
+            _INGEST_REMEDIES.get(code, _INGEST_REMEDY_DEFAULT),
+        )
+    except Exception:
+        pass
+
 # Both Session.request and Session.send are patched, and request() calls send()
 # internally, so without a guard one call would be captured twice. send() also
 # re-enters itself once per redirect hop (resolve_redirects calls
@@ -839,6 +965,14 @@ class StubSmith:
                 self._do_send(payload)
             except Exception as exc:
                 self._send_failures += 1
+                if isinstance(exc, urllib.error.HTTPError):
+                    # The error object is file-like; a refusal such as a 422
+                    # quarantine carries the same ok:false body as a 200.
+                    try:
+                        raw = exc.read(_INGEST_ERROR_READ_BYTES)
+                    except Exception:
+                        raw = None
+                    _report_ingest_refusal(raw, getattr(exc, "code", None), self._debug)
                 # Errors are always swallowed so the caller is never affected.
                 # In debug mode a WARNING is emitted with the exception class,
                 # HTTP status/reason (when available), and target URL.
@@ -920,7 +1054,9 @@ class StubSmith:
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310
-            resp.read()  # drain
+            raw = resp.read()  # drain
+            status = getattr(resp, "status", None)
+        _report_ingest_refusal(raw, status, self._debug)
 
 
 # ------------------------------------------------------------------
