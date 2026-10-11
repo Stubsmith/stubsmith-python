@@ -62,12 +62,19 @@ Response headers are masked independently via the ``resp_header.`` namespace
 automatically keep a same-named response header; the namespaces are fully
 decoupled.
 
+Project field masks
+-------------------
+When the caller passes ``extra_rules`` (a
+:class:`~stubsmith.privacy.masking.CompiledRules` from the project's synced
+rules), every field whose name is in its ``field_masks`` is masked even when a
+path rule keeps it: JSON keys (the whole value beneath the key), form fields,
+query params and headers.  Names compare case-insensitively.
+
 Belt-and-suspenders regex
 --------------------------
 String scalars that survive the "keep" check still have regex masks applied
-in order to catch residual PII patterns.  When the caller passes ``extra_rules``
-(a :class:`~stubsmith.privacy.masking.CompiledRules` from the project's synced
-rules), those are used.  Otherwise the module-level
+in order to catch residual PII patterns.  When the caller passes ``extra_rules``,
+those are used.  Otherwise the module-level
 :data:`_EMBEDDED_REGEX_MASKS` (email + credit-card patterns) are applied.
 """
 
@@ -302,8 +309,9 @@ def apply_field_rules(
     compiled:
         Pre-compiled field rules from :func:`compile_field_rules`.
     extra_rules:
-        Optional project-level :class:`~stubsmith.privacy.masking.CompiledRules`
-        for additional regex masking.  When ``None``, the built-in
+        Optional project-level :class:`~stubsmith.privacy.masking.CompiledRules`.
+        Its ``field_masks`` mask matching fields even when kept, and its regex
+        masks run on kept strings.  When ``None``, the built-in
         :data:`_EMBEDDED_REGEX_MASKS` are used as a backstop.
     email_domain:
         Domain to use for generated email placeholders (see
@@ -319,7 +327,7 @@ def apply_field_rules(
     ct = _normalise_ct(content_type)
     salt = _ph_get_salt()
 
-    masked_headers = _apply_header_rules(headers, compiled.keep_header)
+    masked_headers = _apply_header_rules(headers, compiled.keep_header, regex.field_masks)
     masked_query = _apply_query_rules(
         query_params, compiled.keep_query, compiled.query_mask_types, regex, salt, email_domain
     )
@@ -377,8 +385,9 @@ def apply_resp_field_rules(
     compiled:
         Pre-compiled field rules from :func:`compile_field_rules`.
     extra_rules:
-        Optional project-level :class:`~stubsmith.privacy.masking.CompiledRules`
-        for additional regex masking.  When ``None``, the built-in
+        Optional project-level :class:`~stubsmith.privacy.masking.CompiledRules`.
+        Its ``field_masks`` mask matching fields even when kept, and its regex
+        masks run on kept strings.  When ``None``, the built-in
         :data:`_EMBEDDED_REGEX_MASKS` are used as a backstop.
     resp_status:
         HTTP response status code.  When provided, status-scoped rules for
@@ -412,7 +421,9 @@ def apply_resp_field_rules(
         resp_status,
     )
 
-    masked_headers = _apply_header_rules(resp_headers, effective_keep_resp_header)
+    masked_headers = _apply_header_rules(
+        resp_headers, effective_keep_resp_header, regex.field_masks
+    )
     masked_body = _apply_body_rules(
         resp_body, ct, effective_keep_resp, compiled.resp_mask_types, regex, salt, email_domain
     )
@@ -533,7 +544,9 @@ def _apply_body_rules(
         # Non-JSON, non-form body - fail-closed: mask entirely
         return "<masked>"
 
-    return json.dumps(_walk_and_mask(parsed, "", keep_body, mask_types, regex, salt, email_domain))
+    return json.dumps(
+        _walk_and_mask(parsed, "", keep_body, mask_types, regex, salt, email_domain, False)
+    )
 
 
 def _walk_and_mask(
@@ -544,10 +557,13 @@ def _walk_and_mask(
     regex: CompiledRules,
     salt: Optional[bytes],
     email_domain: Optional[str],
+    forced: bool,
 ) -> Any:
     """Recursively mask all scalars whose path is not in *keep_set*.
 
-    - Dicts: recurse into each key (path grows with ``.key``).
+    - Dicts: recurse into each key (path grows with ``.key``).  A key named in
+      ``regex.field_masks`` sets *forced* for everything beneath it.
+    - *forced*: the keep set is ignored and every scalar is masked.
     - Lists: iterate ALL elements through the ``[]`` path segment.
     - Scalars at a path in *keep_set*: kept; string values still get regex masks.
     - Scalars not in *keep_set*: type-appropriate placeholder (fail-closed).
@@ -558,18 +574,24 @@ def _walk_and_mask(
         out: Dict[str, Any] = {}
         for k, v in obj.items():
             child_path = f"{prefix}.{k}" if prefix else k
-            out[k] = _walk_and_mask(v, child_path, keep_set, mask_types, regex, salt, email_domain)
+            child_forced = forced or k.lower() in regex.field_masks
+            out[k] = _walk_and_mask(
+                v, child_path, keep_set, mask_types, regex, salt, email_domain, child_forced
+            )
         return out
 
     if isinstance(obj, list):
         arr_path = f"{prefix}.[]" if prefix else "[]"
-        return [_walk_and_mask(e, arr_path, keep_set, mask_types, regex, salt, email_domain) for e in obj]
+        return [
+            _walk_and_mask(e, arr_path, keep_set, mask_types, regex, salt, email_domain, forced)
+            for e in obj
+        ]
 
     # Scalar
     if obj is None:
         return None
 
-    if prefix in keep_set:
+    if prefix in keep_set and not forced:
         # Keep this value; run regex backstop on strings.
         if isinstance(obj, str):
             return _apply_regexes(obj, regex)
@@ -604,7 +626,7 @@ def _apply_form_rules(
         return "<masked>"
     out: Dict[str, List[str]] = {}
     for k, vals in parsed.items():
-        if k in keep_body:
+        if k in keep_body and k.lower() not in regex.field_masks:
             out[k] = [_apply_regexes(v, regex) for v in vals]
         else:
             sem_type = mask_types.get(k)
@@ -625,17 +647,20 @@ def _apply_form_rules(
 def _apply_header_rules(
     headers: Dict[str, Any],
     keep_header: FrozenSet[str],
+    field_masks: FrozenSet[str],
 ) -> Dict[str, Any]:
     """Apply allowlist + explicit keep rules to headers.
 
     A header value is kept when the lowercased header name is in
-    ``HEADER_ALLOWLIST`` **or** has an explicit ``keep`` rule.  Everything
-    else is masked.
+    ``HEADER_ALLOWLIST`` **or** has an explicit ``keep`` rule, and is not in
+    *field_masks*.  Everything else is masked.
     """
     out: Dict[str, Any] = {}
     for k, v in headers.items():
         lower = k.lower()
-        if lower in HEADER_ALLOWLIST or lower in keep_header:
+        if lower in field_masks:
+            out[k] = "<masked>"
+        elif lower in HEADER_ALLOWLIST or lower in keep_header:
             out[k] = v
         else:
             out[k] = "<masked>"
@@ -663,7 +688,7 @@ def _apply_query_rules(
         return "<masked>"
     out: Dict[str, List[str]] = {}
     for k, vals in parsed.items():
-        if k in keep_query:
+        if k in keep_query and k.lower() not in regex.field_masks:
             out[k] = [_apply_regexes(v, regex) for v in vals]
         else:
             sem_type = mask_types.get(k)

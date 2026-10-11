@@ -11,7 +11,8 @@ Coverage targets
 - Fail-closed on injected masking exception (payload still masked, never raw).
 - Truncation happens AFTER fingerprinting (fingerprint on pre-truncation body).
 - Image body replaced by placeholder + base64 encoding flag.
-- Legacy fallback mode (404 → global rules, no novelty, one warning).
+- Sync 404: no fallback rules source, every value masked, one warning.
+- Project field_masks override keep rules after sync.
 - Old-server compat: ``path`` field is still usable without the new fields.
 - Multi-valued query params.
 - field_rules.compile_field_rules / apply_field_rules (unit tests).
@@ -950,15 +951,9 @@ class TestProjectDefaults:
                 "regex_masks": [],
             },
         )
-        # Note: project_defaults field_masks are not re-applied to already-kept body
-        # paths (that is mask_known semantics, not apply_field_rules). The main
-        # assertion here is that the pipeline does not crash and the regex backstop
-        # path is exercised via extra_rules.
         result = call_process(pipeline, req_body=req_body)
         assert result is not None
-        # Pipeline must not raise; body is valid JSON
-        obj = json.loads(result["req_body"])
-        assert "count" in obj
+        assert json.loads(result["req_body"]) == {"token": "<masked>", "count": 0}
 
     def test_absent_project_defaults_embedded_regex_still_applied(self):
         """When project_defaults absent from sync, embedded email regex is the backstop."""
@@ -1148,29 +1143,6 @@ class TestPipelineFailClosed:
         # novel=True because we fell back to mask_all path
         assert result["novel"] is True
 
-    def test_legacy_compiled_rules_branch_raises_degrades_to_mask_all(self):
-        """If mask_known raises when the cache returns a CompiledRules (legacy mode),
-        the pipeline degrades to mask_all + novel=True rather than leaking raw data."""
-        legacy_body = {"field_masks": [], "regex_masks": []}
-        cache, pipeline = make_pipeline(fake_responses={
-            "sync": (404, None),
-            "anonymizer/rules": (200, legacy_body),
-        })
-        cache._poll_once()
-
-        import stubsmith.privacy.pipeline as pl_module
-        with mock.patch.object(pl_module, "mask_known",
-                               side_effect=RuntimeError("injected mask_known failure")):
-            result = call_process(
-                pipeline, req_body='{"sensitive": "value", "count": 5}'
-            )
-
-        assert result is not None
-        obj = json.loads(result["req_body"])
-        assert obj.get("sensitive") == "<masked>"
-        assert obj.get("count") == 0
-        assert result["novel"] is True
-
     def test_catastrophic_failure_returns_none(self):
         """A fully broken pipeline returns None rather than raw data."""
         _, pipeline = make_pipeline()
@@ -1192,233 +1164,224 @@ class TestPipelineFailClosed:
         assert result is None
 
 
-class TestPipelineLegacyFallback:
-    def test_legacy_mode_on_404(self):
-        """404 from /v1/sdk/sync → legacy rules, no novelty."""
-        legacy_body = {
-            "field_masks": ["password"],
-            "regex_masks": [],
-        }
-        cache, pipeline = make_pipeline(fake_responses={
-            "sync": (404, None),
-            "anonymizer/rules": (200, legacy_body),
-        })
-        cache._poll_once()
-        assert cache._legacy_mode is True
+class RecordingRulesCache(FakeRulesCache):
+    """FakeRulesCache that records every URL it is asked to fetch."""
 
-    def test_legacy_mode_lookup_always_returns_compiled_rules(self):
-        """In legacy mode, lookup returns a CompiledRules (never None)."""
-        from stubsmith.privacy.masking import CompiledRules
-        legacy_body = {"field_masks": ["secret"], "regex_masks": []}
-        cache, _ = make_pipeline(fake_responses={
-            "sync": (404, None),
-            "anonymizer/rules": (200, legacy_body),
-        })
-        cache._poll_once()
-        result = cache.lookup("any-endpoint", "any-fingerprint")
-        assert isinstance(result, CompiledRules)
+    def __init__(self, responses: Optional[Dict[str, Any]] = None):
+        super().__init__(responses)
+        self.fetched: List[str] = []
 
-    def test_legacy_mode_masks_field_masks(self):
-        """In legacy mode, field_masks from /v1/anonymizer/rules are applied."""
-        legacy_body = {"field_masks": ["password"], "regex_masks": []}
-        cache, pipeline = make_pipeline(fake_responses={
-            "sync": (404, None),
-            "anonymizer/rules": (200, legacy_body),
-        })
-        cache._poll_once()
+    def _http_get(self, url: str) -> Tuple[int, Optional[Dict]]:
+        self.fetched.append(url)
+        return super()._http_get(url)
 
-        req_body = json.dumps({"username": "alice", "password": "s3cr3t"})
-        result = call_process(pipeline, req_body=req_body)
+
+# Dummy values only.  Each one must be absent from any payload that is meant to
+# be fully masked.
+_DUMMY_EMAIL = "ana@example.com"
+_DUMMY_CARD = "4111111111111111"
+_DUMMY_PASSWORD = "hunter2"
+_DUMMY_TOKEN = "tok_dummy_123"
+
+
+class TestPipelineSyncNotFound:
+    """A 404 from /v1/sdk/sync must never lead to cleartext in a capture."""
+
+    def _process(self, pipeline: PrivacyPipeline) -> Dict:
+        result = pipeline.process(
+            method="POST",
+            raw_url=f"https://api.example.com/v1/orders?email={_DUMMY_EMAIL}&page=2",
+            req_headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {_DUMMY_TOKEN}",
+                "X-User": _DUMMY_EMAIL,
+            },
+            req_body=json.dumps({
+                "user": {"email": _DUMMY_EMAIL, "password": _DUMMY_PASSWORD},
+                "card": _DUMMY_CARD,
+                "amount": 99,
+                "gift": True,
+            }),
+            resp_status=200,
+            resp_headers={"Content-Type": "application/json", "Set-Cookie": f"s={_DUMMY_TOKEN}"},
+            resp_body=json.dumps({"id": 7, "receipt_email": _DUMMY_EMAIL}),
+        )
         assert result is not None
-        obj = json.loads(result["req_body"])
-        assert obj["password"] == "<masked>"
-        # username not in field_masks → kept (mask_known leaves non-matched fields intact)
-        assert obj["username"] == "alice"
+        return result
 
-    def test_legacy_mode_novel_always_false(self):
-        """In legacy mode, no request is considered novel."""
-        legacy_body = {"field_masks": [], "regex_masks": []}
-        cache, pipeline = make_pipeline(fake_responses={
+    def test_404_posts_fully_masked_payload(self):
+        """The exact payload after a 404: every value masked, novel, no fallback fetch."""
+        cache = RecordingRulesCache({
             "sync": (404, None),
-            "anonymizer/rules": (200, legacy_body),
+            # Served only so that a regression to the old fallback would load
+            # these rules and send the body through with only "password" masked.
+            "anonymizer/rules": (200, {"field_masks": ["password"], "regex_masks": []}),
         })
+        pipeline = PrivacyPipeline(rules_cache=cache)
         cache._poll_once()
-        result = call_process(pipeline)
+
+        result = self._process(pipeline)
+
+        assert cache.fetched == ["http://fake/v1/sdk/sync?cursor=0"]
+        posted = json.dumps(result)
+        for value in (_DUMMY_EMAIL, "ana%40example.com", _DUMMY_CARD, _DUMMY_PASSWORD, _DUMMY_TOKEN):
+            assert value not in posted
+        fingerprints = {k: result.pop(k) for k in ("req_fingerprint", "resp_fingerprint")}
+        assert all(isinstance(v, str) and v for v in fingerprints.values())
+        assert result == {
+            "sdk_version": result["sdk_version"],
+            "sdk_masked": True,
+            "sdk_rule_version": "0",
+            "domain": "api.example.com",
+            "path_template": "/v1/orders",
+            "path": "/v1/orders?email=%3Cmasked%3E&page=%3Cmasked%3E",
+            "method": "POST",
+            "status": 200,
+            "key_paths": ["user", "user.email", "user.password", "card", "amount", "gift"],
+            "resp_key_paths": ["id", "receipt_email"],
+            "req_header_names": ["authorization", "content-type", "x-user"],
+            "resp_header_names": ["content-type", "set-cookie"],
+            "query_names": ["email", "page"],
+            "headers": {
+                "Content-Type": "application/json",
+                "Authorization": "<masked>",
+                "X-User": "<masked>",
+            },
+            "req_body": json.dumps({
+                "user": {"email": "<masked>", "password": "<masked>"},
+                "card": "<masked>",
+                "amount": 0,
+                "gift": False,
+            }),
+            "resp_headers": {"Content-Type": "application/json", "Set-Cookie": "<masked>"},
+            "resp_body": json.dumps({"id": 0, "receipt_email": "<masked>"}),
+            "novel": True,
+            "req_value_types": {
+                "user.email": "email", "user.password": "free_text",
+                "card": "integer_id", "amount": "integer_id",
+            },
+            "resp_value_types": {"id": "integer_id", "receipt_email": "email"},
+        }
+
+    def test_404_logs_one_warning_naming_404_and_backend_url(self, caplog):
+        cache = RecordingRulesCache({"sync": (404, None)})
+        with caplog.at_level("WARNING", logger="stubsmith"):
+            for _ in range(3):
+                cache._poll_once()
+        warnings_logged = [r for r in caplog.records if r.levelname == "WARNING"]
+        assert len(warnings_logged) == 1
+        message = warnings_logged[0].getMessage()
+        assert "404" in message
+        assert "'http://fake'" in message
+
+    def test_404_does_not_mark_rules_synced(self):
+        cache = RecordingRulesCache({"sync": (404, None)})
+        cache._poll_once()
+        assert cache.wait_for_first_sync(0) is False
+
+    def test_404_after_sync_keeps_synced_rules(self):
+        """A later 404 leaves rules already synced in place; they are real rules."""
+        req_body = json.dumps({"id": 5})
+        from stubsmith.privacy.fingerprint import fingerprint as fp_fn
+        fp = fp_fn(req_body, "", "application/json")
+        cache = RecordingRulesCache({
+            "sync": (200, make_sync_response(fp, [{"path": "body.id", "action": "keep"}])),
+        })
+        pipeline = PrivacyPipeline(rules_cache=cache)
+        cache._poll_once()
+        cache._fake_responses["sync"] = (404, None)
+        cache._poll_once()
+
+        result = call_process(pipeline, req_body=req_body)
         assert result is not None
         assert result["novel"] is False
+        assert json.loads(result["req_body"]) == {"id": 5}
 
-    def test_legacy_warning_emitted_once(self):
-        """Only one warning should be logged on repeated polls in legacy mode."""
-        legacy_body = {"field_masks": [], "regex_masks": []}
-        cache, _ = make_pipeline(fake_responses={
-            "sync": (404, None),
-            "anonymizer/rules": (200, legacy_body),
-        })
-        with mock.patch.object(
-            type(cache).__mro__[1],  # RulesCache via super
-            "__init__",
-            lambda *a, **kw: None,
-        ):
-            pass  # just to ensure the mock infrastructure is working
 
-        warning_count = 0
-        original_warning = cache.__class__.__bases__[0].__dict__  # noqa
+class TestPipelineProjectFieldMasks:
+    """After sync, project field_masks mask a field even when a rule keeps it."""
 
-        with mock.patch("stubsmith.privacy.rules_cache.logger") as mock_logger:
-            cache._poll_once()
-            cache._poll_once()
-            cache._poll_once()
-            # warning should be called exactly once
-            warning_calls = [c for c in mock_logger.method_calls if "warning" in str(c)]
-            assert len(warning_calls) == 1
-
-    def test_legacy_fallback_list_shape_merges_enabled_sets(self):
-        """New server returns rules as a list of named sets; enabled sets merged."""
-        legacy_body = {
-            "ok": True,
-            "rules": [
-                {
-                    "id": "s1", "name": "set-a", "enabled": True,
-                    "rules": {"field_masks": ["password", "token"], "regex_masks": []},
-                    "updated_at": "2026-01-01T00:00:00Z",
-                },
-                {
-                    "id": "s2", "name": "set-b", "enabled": True,
-                    "rules": {"field_masks": ["secret"], "regex_masks": []},
-                    "updated_at": "2026-01-01T00:00:00Z",
-                },
-                {
-                    "id": "s3", "name": "set-disabled", "enabled": False,
-                    "rules": {"field_masks": ["should_not_mask"], "regex_masks": []},
-                    "updated_at": "2026-01-01T00:00:00Z",
-                },
-            ],
-        }
-        cache, pipeline = make_pipeline(fake_responses={
-            "sync": (404, None),
-            "anonymizer/rules": (200, legacy_body),
-        })
-        cache._poll_once()
-        assert cache._legacy_mode is True
-
+    def test_field_masks_override_keep_in_posted_payload(self):
+        """The exact masked fields in the payload when kept fields match field_masks."""
+        from stubsmith.privacy.fingerprint import fingerprint as fp_fn
+        query = f"password={_DUMMY_PASSWORD}&page=2"
         req_body = json.dumps({
-            "password": "s3cr3t",
-            "token": "tok",
-            "secret": "shh",
-            "should_not_mask": "visible",
-            "other": "plain",
+            "password": _DUMMY_PASSWORD,
+            "user": {"name": "Ana", "Password": _DUMMY_PASSWORD},
+            "items": [{"sku": "A1", "password": _DUMMY_PASSWORD}],
+            "reset": {"password": {"old": _DUMMY_PASSWORD, "new": _DUMMY_PASSWORD}},
+            "history": {"password": [{"hint": _DUMMY_PASSWORD}]},
+            "count": 3,
         })
-        result = call_process(pipeline, req_body=req_body)
-        assert result is not None
-        obj = json.loads(result["req_body"])
-        assert obj["password"] == "<masked>"
-        assert obj["token"] == "<masked>"
-        assert obj["secret"] == "<masked>"
-        # disabled set must not be applied
-        assert obj["should_not_mask"] == "visible"
-        assert obj["other"] == "plain"
+        resp_body = json.dumps({"id": 9, "password": _DUMMY_PASSWORD, "pin": {"password": _DUMMY_PASSWORD}})
+        fp = fp_fn(req_body, query, "application/json")
+        keep = [
+            "body.password", "body.user.name", "body.user.Password",
+            "body.items.[].sku", "body.items.[].password",
+            "body.reset.password.old", "body.reset.password.new", "body.count",
+            "body.history.password.[].hint", "resp:200.pin.password", "resp_header:200.x-password",
+            "query.password", "query.page",
+            "header.x-password", "header.x-trace",
+            "resp.id", "resp.password",
+            "resp_header.x-password", "resp_header.x-trace",
+        ]
+        sync = make_sync_response(
+            fp,
+            [{"path": p, "action": "keep"} for p in keep],
+            project_defaults={"field_masks": ["password", " X-Password "], "regex_masks": []},
+        )
+        cache, pipeline = make_pipeline({"sync": (200, sync)})
+        cache._poll_once()
 
-    def test_legacy_fallback_list_shape_field_masks_deduped(self):
-        """Duplicate field_masks across sets are deduplicated (case-insensitive)."""
-        legacy_body = {
-            "ok": True,
-            "rules": [
-                {
-                    "id": "s1", "name": "set-a", "enabled": True,
-                    "rules": {"field_masks": ["Password"], "regex_masks": []},
-                    "updated_at": "2026-01-01T00:00:00Z",
-                },
-                {
-                    "id": "s2", "name": "set-b", "enabled": True,
-                    "rules": {"field_masks": ["password", "TOKEN"], "regex_masks": []},
-                    "updated_at": "2026-01-01T00:00:00Z",
-                },
-            ],
+        result = pipeline.process(
+            method="POST",
+            raw_url=f"https://api.example.com/v1/orders?{query}",
+            req_headers={"Content-Type": "application/json", "X-Password": _DUMMY_PASSWORD, "X-Trace": "t-1"},
+            req_body=req_body,
+            resp_status=200,
+            resp_headers={"Content-Type": "application/json", "X-Password": _DUMMY_PASSWORD, "X-Trace": "t-2"},
+            resp_body=resp_body,
+        )
+
+        assert result is not None
+        assert _DUMMY_PASSWORD not in json.dumps(result)
+        assert result["novel"] is False
+        assert result["path"] == "/v1/orders?password=%3Cmasked%3E&page=2"
+        assert result["headers"] == {
+            "Content-Type": "application/json", "X-Password": "<masked>", "X-Trace": "t-1",
         }
-        cache, _ = make_pipeline(fake_responses={
-            "sync": (404, None),
-            "anonymizer/rules": (200, legacy_body),
-        })
-        cache._poll_once()
-        # "password" appears twice (different case) - compile_rules lowercases, so
-        # the resulting set should have it exactly once (no duplicate error).
-        from stubsmith.privacy.masking import CompiledRules
-        rules = cache.lookup("ep", "fp")
-        assert isinstance(rules, CompiledRules)
-        assert "password" in rules.field_masks
-        assert "token" in rules.field_masks
-
-    def test_legacy_fallback_dict_shape_still_works(self):
-        """Old server shape {ok, rules: {field_masks, regex_masks}} still parsed."""
-        legacy_body = {
-            "ok": True,
-            "rules": {"field_masks": ["apikey"], "regex_masks": []},
+        assert json.loads(result["req_body"]) == {
+            "password": "<masked>",
+            "user": {"name": "Ana", "Password": "<masked>"},
+            "items": [{"sku": "A1", "password": "<masked>"}],
+            "reset": {"password": {"old": "<masked>", "new": "<masked>"}},
+            "history": {"password": [{"hint": "<masked>"}]},
+            "count": 3,
         }
-        cache, pipeline = make_pipeline(fake_responses={
-            "sync": (404, None),
-            "anonymizer/rules": (200, legacy_body),
-        })
-        cache._poll_once()
-        assert cache._legacy_mode is True
+        assert result["resp_headers"] == {
+            "Content-Type": "application/json", "X-Password": "<masked>", "X-Trace": "t-2",
+        }
+        assert json.loads(result["resp_body"]) == {
+            "id": 9, "password": "<masked>", "pin": {"password": "<masked>"},
+        }
 
-        req_body = json.dumps({"apikey": "abc", "name": "alice"})
-        result = call_process(pipeline, req_body=req_body)
+    def test_field_masks_override_keep_in_form_body(self):
+        from stubsmith.privacy.fingerprint import fingerprint as fp_fn
+        ct = "application/x-www-form-urlencoded"
+        req_body = f"username=ana&password={_DUMMY_PASSWORD}"
+        fp = fp_fn(req_body, "", ct)
+        sync = make_sync_response(
+            fp,
+            [{"path": "body.username", "action": "keep"}, {"path": "body.password", "action": "keep"}],
+            project_defaults={"field_masks": ["password"], "regex_masks": []},
+        )
+        cache, pipeline = make_pipeline({"sync": (200, sync)})
+        cache._poll_once()
+
+        result = call_process(pipeline, req_headers={"Content-Type": ct}, req_body=req_body)
+
         assert result is not None
-        obj = json.loads(result["req_body"])
-        assert obj["apikey"] == "<masked>"
-        assert obj["name"] == "alice"
-
-    def test_legacy_fallback_flat_shape_still_works(self):
-        """Flat shape {field_masks, regex_masks} at top level still parsed."""
-        legacy_body = {"field_masks": ["password"], "regex_masks": []}
-        cache, pipeline = make_pipeline(fake_responses={
-            "sync": (404, None),
-            "anonymizer/rules": (200, legacy_body),
-        })
-        cache._poll_once()
-        assert cache._legacy_mode is True
-
-        req_body = json.dumps({"password": "s3cr3t", "user": "alice"})
-        result = call_process(pipeline, req_body=req_body)
-        assert result is not None
-        obj = json.loads(result["req_body"])
-        assert obj["password"] == "<masked>"
-        assert obj["user"] == "alice"
-
-    def test_legacy_path_sets_first_sync_done(self):
-        """A 404 on /v1/sdk/sync followed by a successful legacy poll sets _first_sync_done.
-
-        Without this, install(wait_for_rules=N) would burn the full N seconds
-        on every startup against a pre-sync backend even though rules loaded
-        correctly via the legacy endpoint.
-        """
-        legacy_body = {"field_masks": ["password"], "regex_masks": []}
-        cache, _ = make_pipeline(fake_responses={
-            "sync": (404, None),
-            "anonymizer/rules": (200, legacy_body),
-        })
-        assert not cache._first_sync_done.is_set()
-        cache._poll_once()
-        # Legacy rules loaded - event must be set.
-        assert cache._first_sync_done.is_set()
-        # rules_synced convenience check.
-        assert cache.wait_for_first_sync(0) is True
-
-    def test_legacy_path_failure_also_sets_first_sync_done(self):
-        """_first_sync_done is set even when the legacy endpoint itself fails.
-
-        The event being set indicates the first poll cycle completed, not that
-        rules are available.  Callers check rules_synced or lookup() for that.
-        A failed legacy poll should still release any waiter rather than
-        hanging for the full timeout.
-        """
-        cache, _ = make_pipeline(fake_responses={
-            "sync": (404, None),
-            "anonymizer/rules": (0, None),  # network error on legacy endpoint
-        })
-        assert not cache._first_sync_done.is_set()
-        cache._poll_once()
-        assert cache._first_sync_done.is_set()
+        assert result["req_body"] == "username=ana&password=%3Cmasked%3E"
 
 
 class TestRulesCacheCursorAndTemplates:
