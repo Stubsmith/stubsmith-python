@@ -14,8 +14,7 @@ instrumentation layer for every captured request/response pair.  It:
 5. Looks up the :class:`~stubsmith.privacy.rules_cache.RulesCache` for a
    matching set of compiled field rules.
 6. Applies masking:
-   - Known fingerprint → :func:`~stubsmith.privacy.field_rules.apply_field_rules`
-     (or :func:`~stubsmith.privacy.masking.mask_known` in legacy mode).
+   - Known fingerprint → :func:`~stubsmith.privacy.field_rules.apply_field_rules`.
    - Unknown fingerprint → :func:`~stubsmith.privacy.masking.mask_all`
      (fail-closed) + ``novel=True``.
 7. (Bodies are never truncated. A body is recorded faithfully or not at all;
@@ -44,7 +43,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from .binary import is_image, placeholder_for
 from .field_rules import CompiledFieldRules, apply_field_rules, apply_resp_field_rules
 from .fingerprint import extract_keypaths, extract_value_types, fingerprint, resp_fingerprint, unique_query_names
-from .masking import CompiledRules, mask_all, mask_known
+from .masking import mask_all
 from .rules_cache import RulesCache
 from .templating import template_path
 from .._version import __version__
@@ -298,17 +297,12 @@ class PrivacyPipeline:
             novel = True
             mb, mh, mq = mask_all(req_body, req_headers, query_string, req_ct)
             resp_mb, resp_mh, _ = mask_all(resp_body, resp_headers, "", resp_ct)
-        elif isinstance(lookup, CompiledRules):
-            # Legacy mode - mask_known with global project rules
-            novel = False
-            mb, mh, mq = mask_known(req_body, req_headers, query_string, req_ct, lookup)
-            resp_mb, resp_mh, _ = mask_known(resp_body, resp_headers, "", resp_ct, lookup)
         elif isinstance(lookup, CompiledFieldRules):
             # Modern mode - per-fingerprint field rules.
-            # Pass synced project defaults as the belt-and-suspenders regex
-            # source so the backend's custom patterns are honoured on kept
-            # strings; falls back to field_rules._EMBEDDED_REGEX_MASKS when
-            # no project_defaults have been synced yet (returns None).
+            # Pass synced project defaults so the project's field_masks and
+            # regex masks are honoured on kept values; falls back to
+            # field_rules._EMBEDDED_REGEX_MASKS when no project_defaults have
+            # been synced yet (returns None).
             novel = False
             project_defaults = self._cache.get_project_defaults()
             email_domain = self._cache.get_email_placeholder_domain()

@@ -702,6 +702,25 @@ small enough that a keyed hash could be reversed with a lookup table.  Use
 
 ## Changelog
 
+### 0.7.1
+
+**A 404 from rules sync no longer sends cleartext.** When `GET /v1/sdk/sync`
+answered 404, usually because `backend_url` pointed at the wrong host or path,
+the SDK fell back to the old `/v1/anonymizer/rules` endpoint and treated every
+request as already reviewed. Bodies and query values went out with only the
+named fields masked, marked `novel: false`. That fallback is gone. A 404 now
+leaves the rules as they were, so a request without synced rules is masked in
+full and marked novel, and one `WARNING` on the `stubsmith` logger names the
+404 and the configured `backend_url`. `rules_synced` stays `False` until a
+sync succeeds.
+
+**Project field masks apply to kept fields.** Once rules had synced, the
+`field_masks` of the project's global rule sets were ignored, so a field kept by
+a path rule went out as is even when its name was listed as a field mask, for
+example a kept `password`. A field whose name matches a field mask is now
+masked even when a rule keeps it: a JSON key and everything beneath it, a form
+field, a query parameter or a header. Names compare case-insensitively.
+
 ### 0.7.0
 
 **Ingest refusals are reported.** Ingest can accept the request and still

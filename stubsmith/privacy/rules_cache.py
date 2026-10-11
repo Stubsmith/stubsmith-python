@@ -7,17 +7,13 @@ Endpoint ID
 ``{domain}|{METHOD}|{path_template}`` - composed from the ``request_type``
 object returned by the sync endpoint.
 
-Legacy fallback (404)
----------------------
-When the backend does not recognise ``/v1/sdk/sync`` (old server), the cache
-falls back to ``GET /v1/anonymizer/rules`` once per poll cycle, compiles the
-result with :func:`~stubsmith.privacy.masking.compile_rules`, and stores it as
-global legacy rules.  In legacy mode:
-
-- :meth:`RulesCache.lookup` always returns the global
-  :class:`~stubsmith.privacy.masking.CompiledRules` (novelty detection is
-  disabled - every fingerprint is "known").
-- A single warning is emitted the first time legacy mode is entered.
+Sync not found (404)
+--------------------
+A 404 from ``/v1/sdk/sync`` almost always means ``backend_url`` points at the
+wrong host or path.  The cache does not fall back to any other rules source:
+it keeps whatever rules it already holds, so an unknown fingerprint still
+misses and the pipeline masks every value (fail closed).  One WARNING naming
+the 404 and the configured ``backend_url`` is logged per cache.
 
 Network errors
 --------------
@@ -89,20 +85,15 @@ class RulesCache:
 
         # Protected by _lock
         self._lock = threading.RLock()
-        # (endpoint_id, fingerprint) → CompiledFieldRules (modern mode) or
-        # a single key None → CompiledRules (legacy mode sentinel not used here;
-        # legacy rules are stored separately)
+        # (endpoint_id, fingerprint) → CompiledFieldRules
         self._rules: Dict[Tuple[str, str], CompiledFieldRules] = {}
-        self._legacy_mode: bool = False
-        self._legacy_rules: CompiledRules = compile_rules([], [])
-        self._legacy_warned: bool = False
+        self._sync_404_warned: bool = False
         self._cursor: str = "0"
         # Synced project-level defaults (merged enabled named sets from backend)
         # None until the first successful sync that includes project_defaults.
         self._project_defaults: Optional[CompiledRules] = None
         # Email placeholder domain for format-preserving email generation.
-        # The Go ingest service re-masks any email whose domain does not match
-        # this value, so both sides must agree.  Defaults to "stub.invalid".
+        # Defaults to "stub.invalid".
         self._email_placeholder_domain: str = "stub.invalid"
         self._curated_templates: List[CuratedTemplate] = []
         # Per-endpoint value-discriminator paths (keyed by endpoint_id).
@@ -144,7 +135,7 @@ class RulesCache:
 
     def lookup(
         self, endpoint_id: str, fp: str
-    ) -> Optional[Any]:
+    ) -> Optional[CompiledFieldRules]:
         """Look up compiled rules for *(endpoint_id, fp)*.
 
         Returns
@@ -152,16 +143,11 @@ class RulesCache:
         None
             Unknown fingerprint → novel request; caller should use
             :func:`~stubsmith.privacy.masking.mask_all`.
-        CompiledRules
-            Legacy mode is active; caller should use
-            :func:`~stubsmith.privacy.masking.mask_known` with this object.
         CompiledFieldRules
             Cloud-synced per-fingerprint field rules; caller should use
             :func:`~stubsmith.privacy.field_rules.apply_field_rules`.
         """
         with self._lock:
-            if self._legacy_mode:
-                return self._legacy_rules
             return self._rules.get((endpoint_id, fp))
 
     def get_curated_templates(self) -> List[CuratedTemplate]:
@@ -182,9 +168,8 @@ class RulesCache:
         """Return the email placeholder domain synced from the backend.
 
         Defaults to ``"stub.invalid"`` until a sync response provides
-        ``project_defaults.email_placeholder_domain``.  The Go ingest service
-        re-masks any email whose domain does not match this value, so the SDK
-        must use it when generating format-preserving email addresses.
+        ``project_defaults.email_placeholder_domain``.  The SDK uses it when
+        generating format-preserving email addresses.
         """
         with self._lock:
             return self._email_placeholder_domain
@@ -319,7 +304,7 @@ class RulesCache:
             self._stop.wait(timeout=self._poll_interval)
 
     def _poll_once(self) -> None:
-        """One poll cycle: try sync, fall back to legacy on 404."""
+        """One poll cycle: fetch sync and merge a successful response."""
         with self._lock:
             cursor = self._cursor
 
@@ -327,7 +312,7 @@ class RulesCache:
         status, body = self._http_get(sync_url)
 
         if status == 404:
-            self._handle_legacy_fallback()
+            self._warn_sync_not_found(sync_url)
             return
 
         if status == 0:
@@ -442,73 +427,26 @@ class RulesCache:
             # Full replacement when the key was present (absent key → no change).
             if new_value_config is not None:
                 self._value_config = new_value_config
-            self._legacy_mode = False
 
         # Signal after releasing the lock so waiters can acquire it immediately.
         self._first_sync_done.set()
 
-    def _handle_legacy_fallback(self) -> None:
-        """Fall back to ``GET /v1/anonymizer/rules`` on a 404 from sync."""
-        legacy_url = f"{self._backend_url}/v1/anonymizer/rules"
-        status, body = self._http_get(legacy_url)
+    def _warn_sync_not_found(self, sync_url: str) -> None:
+        """Log one WARNING for a 404 from sync.  Rules are left as they are.
 
+        There is deliberately no fallback rules source here.  The old fallback
+        to ``/v1/anonymizer/rules`` treated every request as known and masked
+        only named fields, so a mistyped ``backend_url`` sent bodies and query
+        values in cleartext.  Without synced rules every lookup misses and the
+        pipeline masks everything.
+        """
         with self._lock:
-            if not self._legacy_warned:
-                logger.warning(
-                    "stubsmith: backend does not support /v1/sdk/sync; "
-                    "falling back to legacy anonymizer rules - novelty "
-                    "detection is disabled."
-                )
-                self._legacy_warned = True
-            # Set legacy_mode before we have rules: there is a brief window
-            # where lookup() returns the empty default CompiledRules until
-            # the /v1/anonymizer/rules response arrives below.  This is
-            # acceptable - the empty rules still apply mask_known (all
-            # non-allowlisted headers masked; no field/regex masks → body
-            # passes through mask_known with only header allowlist applied).
-            self._legacy_mode = True
-
-        if status == 200 and isinstance(body, dict):
-            rules_payload = body.get("rules")
-            if isinstance(rules_payload, list):
-                # New shape: {ok, rules: [{id, name, enabled, rules: {field_masks,
-                # regex_masks}, updated_at}]} - merge all enabled sets.
-                merged_field: List[str] = []
-                merged_regex: List[Any] = []
-                seen_field: set = set()
-                for rule_set in rules_payload:
-                    if not isinstance(rule_set, dict):
-                        continue
-                    if not rule_set.get("enabled", False):
-                        continue
-                    inner = rule_set.get("rules") or {}
-                    for fm in inner.get("field_masks") or []:
-                        key = fm.strip().lower()
-                        if key and key not in seen_field:
-                            seen_field.add(key)
-                            merged_field.append(fm)
-                    for rm in inner.get("regex_masks") or []:
-                        merged_regex.append(rm)
-                legacy_rules = compile_rules(merged_field, merged_regex)
-            elif isinstance(rules_payload, dict):
-                # Old shape: {ok, rules: {field_masks, regex_masks}}
-                legacy_rules = compile_rules(
-                    rules_payload.get("field_masks") or [],
-                    rules_payload.get("regex_masks") or [],
-                )
-            else:
-                # Flat shape (field_masks/regex_masks at top level) - old compat
-                legacy_rules = compile_rules(
-                    body.get("field_masks") or [],
-                    body.get("regex_masks") or [],
-                )
-            with self._lock:
-                self._legacy_rules = legacy_rules
-        # On failure: keep previous legacy_rules (may be empty defaults)
-
-        # Signal that the legacy path has completed.  The sync event must be
-        # set even when /v1/sdk/sync 404s, because legacy rules did load
-        # successfully.  Without this, install(wait_for_rules=N) would burn
-        # the full N seconds and rules_synced would stay False forever despite
-        # the backend being reachable and returning valid rules.
-        self._first_sync_done.set()
+            if self._sync_404_warned:
+                return
+            self._sync_404_warned = True
+        logger.warning(
+            "stubsmith: rules sync returned HTTP 404 from %s - check backend_url "
+            "(configured: %r). Every captured value is masked until sync succeeds.",
+            sync_url,
+            self._backend_url,
+        )
