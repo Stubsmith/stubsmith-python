@@ -1274,6 +1274,47 @@ class TestPipelineSyncNotFound:
         assert "404" in message
         assert "'http://fake'" in message
 
+    def test_404_before_any_sync_says_everything_is_masked(self, caplog):
+        cache = RecordingRulesCache({"sync": (404, None)})
+        with caplog.at_level("WARNING", logger="stubsmith"):
+            cache._poll_once()
+        (record,) = [r for r in caplog.records if r.levelname == "WARNING"]
+        assert record.getMessage().endswith("Every captured value is masked until sync succeeds.")
+
+    def test_404_after_a_sync_says_cached_rules_still_apply(self, caplog):
+        """Cached keep rules still apply, so the warning must not claim full masking."""
+        cache = RecordingRulesCache({"sync": (200, make_sync_response("fp", []))})
+        cache._poll_once()
+        cache._fake_responses["sync"] = (404, None)
+        with caplog.at_level("WARNING", logger="stubsmith"):
+            cache._poll_once()
+        (record,) = [r for r in caplog.records if r.levelname == "WARNING"]
+        message = record.getMessage()
+        assert "404" in message
+        assert "'http://fake'" in message
+        assert message.endswith(
+            "Rules from the last successful sync stay in effect; anything they "
+            "do not cover is masked in full until sync succeeds again."
+        )
+        assert "Every captured value is masked" not in message
+
+    def test_404_then_sync_then_404_warns_again_with_the_post_sync_wording(self, caplog):
+        cache = RecordingRulesCache({"sync": (404, None)})
+        with caplog.at_level("WARNING", logger="stubsmith"):
+            cache._poll_once()
+            cache._fake_responses["sync"] = (200, make_sync_response("fp", []))
+            cache._poll_once()
+            cache._fake_responses["sync"] = (404, None)
+            cache._poll_once()
+            cache._poll_once()
+        messages = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+        assert len(messages) == 2
+        assert messages[0].endswith("Every captured value is masked until sync succeeds.")
+        assert messages[1].endswith(
+            "Rules from the last successful sync stay in effect; anything they "
+            "do not cover is masked in full until sync succeeds again."
+        )
+
     def test_404_does_not_mark_rules_synced(self):
         cache = RecordingRulesCache({"sync": (404, None)})
         cache._poll_once()

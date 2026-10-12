@@ -427,6 +427,9 @@ class RulesCache:
             # Full replacement when the key was present (absent key → no change).
             if new_value_config is not None:
                 self._value_config = new_value_config
+            # A later 404 is a new outage, so it gets its own warning, worded
+            # for the rules this sync just delivered.
+            self._sync_404_warned = False
 
         # Signal after releasing the lock so waiters can acquire it immediately.
         self._first_sync_done.set()
@@ -444,9 +447,20 @@ class RulesCache:
             if self._sync_404_warned:
                 return
             self._sync_404_warned = True
+        # After an earlier successful sync the cached rules are real and stay
+        # in use, so saying "every value is masked" would be wrong: only
+        # traffic those rules do not cover is masked in full.
+        if self._first_sync_done.is_set():
+            consequence = (
+                "Rules from the last successful sync stay in effect; anything they "
+                "do not cover is masked in full until sync succeeds again."
+            )
+        else:
+            consequence = "Every captured value is masked until sync succeeds."
         logger.warning(
             "stubsmith: rules sync returned HTTP 404 from %s - check backend_url "
-            "(configured: %r). Every captured value is masked until sync succeeds.",
+            "(configured: %r). %s",
             sync_url,
             self._backend_url,
+            consequence,
         )
