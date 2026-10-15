@@ -511,6 +511,10 @@ def _merge_bundles(parts: List[Dict[str, Any]]) -> Dict[str, Any]:
     overlapping filter cannot produce two stubs with the same identity. The
     cursor is the maximum across parts, matching the server's own rule, and any
     ``truncated`` report is carried through so a partial pull still says so.
+    ``project_settings`` is the same in every part, except that a part served
+    while the server could not read it has none or an empty one; replay reads
+    it, so the last part that holds the setting is kept, and the key is left
+    out when no part does.
     """
     if not parts:
         return {"ok": True, "version": 1, "cursor": "0", "endpoints": []}
@@ -549,6 +553,11 @@ def _merge_bundles(parts: List[Dict[str, Any]]) -> Dict[str, Any]:
         "generated_at": parts[-1].get("generated_at"),
         "endpoints": list(merged.values()),
     }
+    for part in reversed(parts):
+        settings = part.get("project_settings")
+        if isinstance(settings, dict) and isinstance(settings.get("group_ids_in_paths"), bool):
+            out["project_settings"] = settings
+            break
     if truncated:
         out["truncated"] = truncated
     return out

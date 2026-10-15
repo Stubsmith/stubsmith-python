@@ -100,6 +100,10 @@ class RulesCache:
         # Defaults to "stub.invalid".
         self._email_placeholder_domain: str = "stub.invalid"
         self._curated_templates: List[CuratedTemplate] = []
+        # The project's "Group IDs in paths automatically" setting, from
+        # project_settings in the sync response.  On until a sync says otherwise,
+        # which is the behaviour from before the setting existed.
+        self._group_ids_in_paths: bool = True
         # Per-endpoint value-discriminator paths (keyed by endpoint_id).
         # Full replacement on every sync response that includes the key.
         self._value_config: Dict[str, List[str]] = {}
@@ -177,6 +181,15 @@ class RulesCache:
         """
         with self._lock:
             return self._email_placeholder_domain
+
+    def get_group_ids_in_paths(self) -> bool:
+        """Return whether path segments that look like IDs become ``{id}``.
+
+        True until a sync response sets ``project_settings.group_ids_in_paths``
+        to false.  When false, only curated templates group paths.
+        """
+        with self._lock:
+            return self._group_ids_in_paths
 
     def get_value_paths(self, endpoint_id: str) -> List[str]:
         """Return the configured value-discriminator paths for *endpoint_id*.
@@ -411,6 +424,13 @@ class RulesCache:
             if isinstance(raw_domain, str) and raw_domain:
                 new_email_domain = raw_domain
 
+        # project_settings: settings the SDK acts on.  A missing key or a
+        # non-boolean value leaves the current setting as it is.
+        new_group_ids: Optional[bool] = None
+        ps_raw = body.get("project_settings")
+        if isinstance(ps_raw, dict) and isinstance(ps_raw.get("group_ids_in_paths"), bool):
+            new_group_ids = ps_raw["group_ids_in_paths"]
+
         # request_type_value_config: optional sparse map of endpoint_id → list of
         # body key-paths whose values should be folded into the request fingerprint.
         # Full replacement under lock on every sync response that contains the key
@@ -440,6 +460,8 @@ class RulesCache:
                 self._project_defaults = project_defaults
             if new_email_domain is not None:
                 self._email_placeholder_domain = new_email_domain
+            if new_group_ids is not None:
+                self._group_ids_in_paths = new_group_ids
             # Full replacement when the key was present (absent key → no change).
             if new_value_config is not None:
                 self._value_config = new_value_config

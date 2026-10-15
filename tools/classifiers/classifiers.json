@@ -1,0 +1,246 @@
+{
+  "_comment": "Value-type labels and path ID rules shared by the Stubsmith SDKs, API and dashboard. Edit this file, bump version, then run generate.py. Regexes are Python re syntax; the SDKs apply them to the whole value as Python's re.match does, where $ also matches before one trailing newline and \\d matches any Unicode decimal digit. accepted_versions lists the spec versions the server accepts value-type labels from; it must include version.",
+  "version": 1,
+  "accepted_versions": [
+    1
+  ],
+  "labels": [
+    {
+      "label": "email",
+      "display": "email"
+    },
+    {
+      "label": "uuid",
+      "display": "UUID"
+    },
+    {
+      "label": "iso8601",
+      "display": "date / time"
+    },
+    {
+      "label": "e164",
+      "display": "phone number"
+    },
+    {
+      "label": "iban",
+      "display": "IBAN"
+    },
+    {
+      "label": "url",
+      "display": "URL"
+    },
+    {
+      "label": "currency_code",
+      "display": "currency code"
+    },
+    {
+      "label": "country_code",
+      "display": "country code"
+    },
+    {
+      "label": "decimal_amount",
+      "display": "decimal amount"
+    },
+    {
+      "label": "integer_id",
+      "display": "integer ID"
+    },
+    {
+      "label": "opaque_token",
+      "display": "token"
+    },
+    {
+      "label": "free_text",
+      "display": "free text"
+    }
+  ],
+  "value_classifier": {
+    "_comment": "A JSON integer is integer_id and a JSON float is decimal_amount; booleans and null get no label. A string gets the label of the first rule that matches, else fallback. opaque_token is never derived from a value.",
+    "json_integer": "integer_id",
+    "json_float": "decimal_amount",
+    "string_rules": [
+      {
+        "label": "uuid",
+        "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "flags": "i",
+        "match": [
+          "550e8400-e29b-41d4-a716-446655440000",
+          "550E8400-E29B-41D4-A716-446655440000"
+        ],
+        "no_match": [
+          "550e8400e29b41d4a716446655440000",
+          "550e8400-e29b-41d4-a716-44665544000"
+        ]
+      },
+      {
+        "label": "email",
+        "regex": "^[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}$",
+        "match": [
+          "ana@example.com",
+          "x.y+z@sub.EXAMPLE.co"
+        ],
+        "no_match": [
+          "ana@example",
+          "a b@example.com",
+          "@example.com"
+        ]
+      },
+      {
+        "label": "iso8601",
+        "regex": "^\\d{4}-\\d{2}-\\d{2}([T ]\\d{2}:\\d{2})|^\\d{4}-\\d{2}-\\d{2}$",
+        "match": [
+          "2026-10-13",
+          "2026-10-13T12:30:00Z",
+          "2026-10-13 12:30",
+          "2026-10-13T12:30garbage",
+          "٢٠٢٦-١٠-١٣"
+        ],
+        "no_match": [
+          "2026-10",
+          "13-10-2026",
+          "2026-10-13T12"
+        ]
+      },
+      {
+        "label": "e164",
+        "regex": "^\\+[0-9]{7,15}$",
+        "match": [
+          "+31201234567",
+          "+1234567"
+        ],
+        "no_match": [
+          "31201234567",
+          "+123456",
+          "+1234567890123456",
+          "+31 20 123 4567"
+        ]
+      },
+      {
+        "label": "iban",
+        "regex": "^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$",
+        "match": [
+          "NL91ABNA0417164300",
+          "NO9386011117947"
+        ],
+        "no_match": [
+          "EU20240001",
+          "nl91abna0417164300",
+          "NL91 ABNA 0417 1643 00"
+        ]
+      },
+      {
+        "label": "url",
+        "regex": "^https?://",
+        "match": [
+          "https://example.com/x",
+          "http://a"
+        ],
+        "no_match": [
+          "ftp://example.com",
+          "example.com",
+          "HTTPS://example.com"
+        ]
+      },
+      {
+        "label": "currency_code",
+        "regex": "^[A-Z]{3}$",
+        "match": [
+          "EUR",
+          "USD"
+        ],
+        "no_match": [
+          "eur",
+          "EURO",
+          "EU"
+        ]
+      },
+      {
+        "label": "country_code",
+        "regex": "^[A-Z]{2}$",
+        "match": [
+          "NL",
+          "US",
+          "NL\n"
+        ],
+        "no_match": [
+          "nl",
+          "NLD",
+          "NL\n\n"
+        ]
+      },
+      {
+        "label": "integer_id",
+        "regex": "^-?[0-9]+$",
+        "match": [
+          "42",
+          "-7",
+          "007"
+        ],
+        "no_match": [
+          "4.2",
+          "+42",
+          "42a",
+          "٤٢"
+        ]
+      },
+      {
+        "label": "decimal_amount",
+        "regex": "^-?[0-9]+\\.[0-9]+$",
+        "match": [
+          "4.20",
+          "-0.5"
+        ],
+        "no_match": [
+          "4.",
+          ".5",
+          "4.2.1"
+        ]
+      }
+    ],
+    "string_fallback": "free_text",
+    "fallback_examples": [
+      "hello world",
+      "abc123",
+      "",
+      "eu",
+      "٤٢"
+    ]
+  },
+  "path_id": {
+    "_comment": "A path segment becomes {id} when any rule matches it: all digits (Python str.isdigit, so other Unicode digits count too), a UUID, or 16 or more hex characters. Curated path templates are tried first; these rules only apply when the project lets the SDK group IDs automatically.",
+    "rules": [
+      {
+        "name": "digits",
+        "kind": "isdigit"
+      },
+      {
+        "name": "uuid",
+        "kind": "regex",
+        "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "flags": "i"
+      },
+      {
+        "name": "hex",
+        "kind": "regex",
+        "regex": "^[0-9a-f]+$",
+        "flags": "i",
+        "min_length": 16
+      }
+    ],
+    "match": [
+      "123",
+      "٤٥",
+      "550e8400-e29b-41d4-a716-446655440000",
+      "0123456789abcdef",
+      "0123456789ABCDEF0"
+    ],
+    "no_match": [
+      "users",
+      "v1",
+      "0123456789abcde",
+      "ab12x",
+      "",
+      "12a"
+    ]
+  }
+}

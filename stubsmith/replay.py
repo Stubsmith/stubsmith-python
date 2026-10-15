@@ -1096,6 +1096,11 @@ class ReplayContext:
         self._on_miss = on_miss
         self.bundle_path: Optional[pathlib.Path] = bundle_path
         self._index, self._curated, self._vp, self._stubs_by_ep = _build_index(bundle)
+        # The project's "Group IDs in paths automatically" setting, as it was when
+        # the bundle was pulled, so replay groups paths the way capture did.
+        # Bundles from before the setting existed have no project_settings: on.
+        settings = bundle.get("project_settings")
+        self._group_ids = not (isinstance(settings, dict) and settings.get("group_ids_in_paths") is False)
         self._original_send: Optional[Any] = None
         self._active = False
         self._select = select
@@ -1256,7 +1261,7 @@ class ReplayContext:
 
         # ── Template the path ─────────────────────────────────────────────
         curated = self._curated.get((method, domain), [])
-        path_tmpl = template_path(path, curated)
+        path_tmpl = template_path(path, curated, group_ids=self._group_ids)
 
         # ── Extract body and content-type ─────────────────────────────────
         raw_body = request.body

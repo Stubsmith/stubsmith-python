@@ -1377,8 +1377,12 @@ class TestPipelineSyncNotFound:
             assert value not in posted
         fingerprints = {k: result.pop(k) for k in ("req_fingerprint", "resp_fingerprint")}
         assert all(isinstance(v, str) and v for v in fingerprints.values())
+        # No sync has succeeded, so the private raw path rides along; the
+        # client's sender removes it before sending.
+        assert result.pop("_raw_path") == "/v1/orders"
         assert result == {
             "sdk_version": result["sdk_version"],
+            "classifier_spec_version": 1,
             "sdk_masked": True,
             "sdk_rule_version": "0",
             "domain": "api.example.com",

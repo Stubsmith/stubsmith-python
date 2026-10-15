@@ -8,9 +8,8 @@ RFC 4122-shaped UUID, an IBAN with a correct mod-97 checksum, etc.  Without a
 salt the module falls back to the constant placeholders (``"<masked>"``, ``0``,
 ``False``) that have always been emitted, so existing users see no change.
 
-Hint-not-mandate contract (mirrors ``SEMANTIC_TYPE_VOCAB`` in
-``backend/src/privacy-helpers.js``)
----------------------------------------------------------------
+Hint-not-mandate contract (``SEMANTIC_TYPE_VOCAB``, from the classifier spec)
+------------------------------------------------------------------------------
 The server infers a ``type`` from the field's *leaf name only* and never from
 the value - it never sees values.  Name-based inference can be wrong: a field
 named ``charge_id`` may hold a string Stripe ID or an integer.  So ``type`` is
@@ -55,26 +54,15 @@ import os
 import uuid as _uuid_module
 from typing import Any, Optional
 
+from . import _classifiers
+
 logger = logging.getLogger("stubsmith")
 
 # ---------------------------------------------------------------------------
-# Closed vocabulary (mirrors backend/src/privacy-helpers.js SEMANTIC_TYPE_VOCAB)
+# Closed vocabulary, generated from the shared classifier spec
 # ---------------------------------------------------------------------------
 
-SEMANTIC_TYPE_VOCAB: frozenset = frozenset({
-    "email",
-    "uuid",
-    "iso8601",
-    "e164",
-    "iban",
-    "url",
-    "currency_code",
-    "country_code",
-    "decimal_amount",
-    "integer_id",
-    "opaque_token",
-    "free_text",
-})
+SEMANTIC_TYPE_VOCAB: frozenset = frozenset(_classifiers.VOCAB)
 
 # Types whose generated output is always a string.
 _STRING_TYPES: frozenset = frozenset({

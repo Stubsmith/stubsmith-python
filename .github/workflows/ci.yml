@@ -32,3 +32,6 @@ jobs:
         # Live tests in examples/fixtures-testing/tests/test_live_fixtures.py are
         # skipped automatically when STUBSMITH_API_KEY is absent.
         run: pytest -q
+
+      - name: Test the classifier generator
+        run: python -m unittest discover -s tools/classifiers -p 'test_*.py'

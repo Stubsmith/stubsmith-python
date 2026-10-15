@@ -336,6 +336,44 @@ class TestHttpErrors(unittest.TestCase):
         self.assertNotEqual(code, 0)
         self.assertIn("500", stderr)
 
+    def test_503_exits_nonzero_and_keeps_the_existing_file(self):
+        """The server answers 503 when it cannot read the project settings."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            out = pathlib.Path(d) / "bundle.json"
+            out.write_text("previous bundle")
+            code, stderr = self._run_with_http_error(503, pathlib.Path(d))
+            self.assertNotEqual(code, 0)
+            self.assertIn("503", stderr)
+            self.assertEqual(out.read_text(), "previous bundle")
+            self.assertEqual([p.name for p in pathlib.Path(d).iterdir()], ["bundle.json"])
+
+    def test_503_creates_no_file_when_none_existed(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            code, _ = self._run_with_http_error(503, pathlib.Path(d))
+            self.assertNotEqual(code, 0)
+            self.assertEqual(list(pathlib.Path(d).iterdir()), [])
+
+    def test_503_on_a_later_part_writes_nothing(self):
+        """A multi-endpoint pull is all or nothing: a later part failing keeps the old file."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            out = pathlib.Path(d) / "bundle.json"
+            out.write_text("previous bundle")
+            effects = [_urlopen_mock(_make_bundle()), _http_error(503)]
+            with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
+                with patch("urllib.request.urlopen", side_effect=effects):
+                    with patch("sys.stderr", new_callable=io.StringIO) as err:
+                        code = main([
+                            "pull", "--out", str(out),
+                            "--endpoint", "GET /a", "--endpoint", "GET /b",
+                        ])
+            self.assertNotEqual(code, 0)
+            self.assertIn("503", err.getvalue())
+            self.assertEqual(out.read_text(), "previous bundle")
+            self.assertEqual([p.name for p in pathlib.Path(d).iterdir()], ["bundle.json"])
+
 
 class TestMalformedJson(unittest.TestCase):
 
@@ -891,6 +929,33 @@ class TestMultipleEndpoints(unittest.TestCase):
         )
         self.assertEqual(code, 0)
         self.assertEqual(bundle["truncated"], {"samples": {"limit": 25}})
+
+    def test_project_settings_survive_the_merge(self):
+        """Replay reads the group-IDs setting, so a merged pull must keep it."""
+        settings = {"group_ids_in_paths": False}
+        parts = [_make_bundle([self._ep("/a", "fpa")]), _make_bundle([self._ep("/b", "fpb")])]
+        for part in parts:
+            part["project_settings"] = dict(settings)
+        code, bundle, _ = self._pull(["--endpoint", "GET /a", "--endpoint", "GET /b"], parts)
+        self.assertEqual(code, 0)
+        self.assertEqual(bundle["project_settings"], settings)
+
+    def test_a_part_without_the_setting_does_not_hide_it(self):
+        """A part served while the server could not read the setting carries {}."""
+        parts = [_make_bundle([self._ep("/a", "fpa")]), _make_bundle([self._ep("/b", "fpb")])]
+        parts[0]["project_settings"] = {"group_ids_in_paths": False}
+        parts[1]["project_settings"] = {}
+        code, bundle, _ = self._pull(["--endpoint", "GET /a", "--endpoint", "GET /b"], parts)
+        self.assertEqual(code, 0)
+        self.assertEqual(bundle["project_settings"], {"group_ids_in_paths": False})
+
+    def test_a_merge_without_project_settings_has_no_such_key(self):
+        code, bundle, _ = self._pull(
+            ["--endpoint", "GET /a", "--endpoint", "GET /b"],
+            [_make_bundle([self._ep("/a", "fpa")]), _make_bundle([self._ep("/b", "fpb")])],
+        )
+        self.assertEqual(code, 0)
+        self.assertNotIn("project_settings", bundle)
 
     def test_a_single_endpoint_is_unchanged_by_the_merge_path(self):
         one = _make_bundle([self._ep("/a", "fpa")])

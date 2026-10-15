@@ -764,6 +764,30 @@ Replayed responses carry `Cache-Control: <masked>` unless you keep
 active, a kept string longer than 65,536 characters is masked without running
 any pattern, so a pattern that backtracks badly cannot stall your requests.
 
+**Turning off automatic ID grouping in paths.** The SDK turns path segments
+that look like IDs (all digits, a UUID, or 16 or more hex characters) into
+`{id}`. A project can now turn that off with the dashboard setting "Group IDs
+in paths automatically". When it is off, only the project's path patterns group
+paths, and every other segment is sent as written. The SDK reads the setting
+from `project_settings` in the rules sync, and replay reads it from the bundle,
+so replay groups paths the way capture did. Until a sync says otherwise the
+setting is on, which is the behaviour of earlier releases.
+
+**Captures made before the first sync wait for it.** A capture processed before
+the first rules sync used to be sent with IDs grouped even on a project that
+turned grouping off, so the same endpoint could arrive as `/orders/{id}` and
+then as `/orders/123`. The sender now holds such a capture, for at most 5
+seconds from client start, until the sync arrives, and then applies the
+project's setting. If no sync arrives in that time it is sent as before, and a
+`flush()`, including the one at exit, sends held captures at once. The
+application's own requests are never delayed.
+
+**Value-type labels and ID rules come from a shared spec.** The labels the SDK
+reports for observed values and the rules for ID segments are generated from
+`tools/classifiers/classifiers.json`, the same spec the Node SDK uses. Captures
+now carry `classifier_spec_version`, so the server can tell which version of
+the labels a capture used. The labels and rules themselves are unchanged.
+
 ### 0.7.1
 
 **A 404 from rules sync no longer sends cleartext.** When `GET /v1/sdk/sync`
