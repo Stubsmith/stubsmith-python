@@ -390,9 +390,10 @@ Reading it:
   heuristic (all digits, UUID-shaped, or 16 or more hex characters) nor one of
   your curated request-type templates collapses, which is sent as written, and
   the allowlisted transport headers above.
-- **`resp_value_types` reports recognizable formats, not content.** `"iban"`
-  means the string parsed as an IBAN. Character composition is never inspected,
-  so no label is derived from the value beyond its format.
+- **`resp_value_types` is a label, not a masking decision.** The SDK reads
+  each value to recognise its format, so `"iban"` means the string parsed as an
+  IBAN. Only the label is sent. Nothing is masked or kept because of a label:
+  that is decided by your rules alone.
 - **`sdk_masked: true`** is what the ingest service requires; a payload without
   it is rejected with `400 sdk_required`, so an unmasked body cannot be posted
   through this endpoint at all.
@@ -671,7 +672,9 @@ needs no per-fixture registration.
 ## Masking and placeholders
 
 Values are masked in the SDK, before a capture is uploaded: the server never
-receives the originals.  A field with no `keep` rule is replaced.
+receives the originals.  A field with no `keep` rule is replaced.  A kept
+value is sent as it is: the SDK has no built-in patterns of its own, so only
+your keep rules, field masks and regex masks decide what is masked.
 
 By default the replacement is a constant (`"<masked>"`, `0`, `False`) matching
 the original's type.
@@ -701,6 +704,32 @@ small enough that a keyed hash could be reversed with a lookup table.  Use
 ---
 
 ## Changelog
+
+### 0.8.0
+
+**The SDK no longer scrubs kept values for emails and card numbers.** Earlier
+releases replaced email addresses and 16-digit numbers inside kept strings with
+`<masked>`, but only until the project had any global rule, so some projects
+had this and others did not. It is removed. What decides masking is now only
+your own rules: a field without a `keep` rule is masked as before, and a kept
+field is sent as it is, even when it holds an email address or a card number.
+
+**What to check:** look at the fields you keep. If a kept field can hold an
+email address, a card number or other personal data, remove the `keep` rule,
+or add a field mask or regex mask for it in the project's global rules.
+
+**A customer rule that cannot be used masks instead of being skipped.** A
+regex mask whose pattern does not compile used to be dropped without a word,
+so the values it was meant to mask went out, and a malformed entry in the
+project's global rules (for example a pattern that is not a string) made the
+SDK ignore all of them, field masks included. Now the valid rules still apply,
+every kept string is masked while such an entry is in the rules, and one
+`WARNING` on the `stubsmith` logger names it. Fix or remove the entry to get
+kept values back.
+
+**Regex masks are not run on very long strings.** While a regex mask is
+active, a kept string longer than 65,536 characters is masked without running
+any pattern, so a pattern that backtracks badly cannot stall your requests.
 
 ### 0.7.1
 

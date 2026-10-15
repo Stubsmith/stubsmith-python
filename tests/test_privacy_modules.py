@@ -593,9 +593,52 @@ class TestCompileRules:
         assert "password" in rules.field_masks
         assert "token" in rules.field_masks
 
-    def test_invalid_regex_skipped(self):
-        rules = _rules(regex_masks=[{"pattern": "[invalid(", "replace": "x"}])
-        assert len(rules.regex_masks) == 0
+    def test_invalid_regex_marks_rules_unusable(self):
+        rules = _rules(regex_masks=[
+            {"pattern": "ok", "replace": "x"},
+            {"pattern": "[invalid(", "replace": "x"},
+        ])
+        assert len(rules.regex_masks) == 1
+        assert rules.unusable is True
+
+    def test_repeat_count_python_cannot_represent_marks_unusable(self):
+        # re.compile raises OverflowError, not re.error, for this.
+        rules = _rules(regex_masks=[{"pattern": "a{99999999999}", "replace": "x"}])
+        assert rules.unusable is True
+
+    @pytest.mark.parametrize("field_masks, regex_masks", [
+        ([], [{"pattern": 5}]),
+        ([], [{"pattern": ""}]),
+        ([], [{}]),
+        ([], ["not an object"]),
+        ([], [{"pattern": "a", "replace": 5}]),
+        ([], [{"pattern": "a", "flags": 5}]),
+        ([], {"pattern": "a"}),
+        ([1, "ok"], []),
+        ("password", []),
+    ])
+    def test_malformed_entry_marks_unusable(self, field_masks, regex_masks):
+        rules = _rules(field_masks=field_masks, regex_masks=regex_masks)
+        assert rules.unusable is True
+
+    def test_malformed_entry_keeps_the_rest(self):
+        rules = _rules(field_masks=[1, "Secret"], regex_masks=[{"pattern": 5}, {"pattern": "ok", "replace": "x"}])
+        assert rules.field_masks == frozenset({"secret"})
+        assert len(rules.regex_masks) == 1
+
+    def test_valid_regexes_not_unusable(self):
+        assert _rules(regex_masks=[{"pattern": "ok", "replace": "x"}]).unusable is False
+
+    def test_invalid_regex_warns_once(self, caplog):
+        from stubsmith.privacy.masking import _reset_masking_warnings_for_tests
+        _reset_masking_warnings_for_tests()
+        with caplog.at_level("WARNING", logger="stubsmith"):
+            _rules(regex_masks=[{"pattern": "ok"}, {"pattern": "[[["}])
+            _rules(regex_masks=[{"pattern": "((("}])
+        msgs = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+        assert len(msgs) == 1
+        assert "regex mask at index 1 cannot be used" in msgs[0]
+        _reset_masking_warnings_for_tests()
 
     def test_empty_replace_becomes_masked(self):
         rules = _rules(regex_masks=[{"pattern": "foo", "replace": ""}])
@@ -697,13 +740,24 @@ class TestMaskObject:
         masked, _, _ = mask_known(body, {}, "", "text/plain", rules)
         assert masked == "hello world"
 
-    def test_invalid_regex_silently_skipped(self):
-        body = json.dumps({"val": "hello"})
+    def test_invalid_regex_fails_closed(self):
+        body = json.dumps({"val": "hello", "n": 1})
         rules = compile_rules([], [{"pattern": "[[[", "replace": "x"}])
-        # No exception; body returned unchanged
+        # No exception; strings masked because the rule's effect is unknown
         masked, _, _ = mask_known(body, {}, "", "application/json", rules)
-        obj = json.loads(masked)
-        assert obj["val"] == "hello"
+        assert json.loads(masked) == {"val": "<masked>", "n": 1}
+
+    def test_long_string_masked_without_running_regex(self):
+        from stubsmith.privacy.masking import MAX_REGEX_SCAN_CHARS, _apply_regexes
+        rules = compile_rules([], [{"pattern": "zzz", "replace": "x"}])
+        at_cap = "a" * MAX_REGEX_SCAN_CHARS
+        assert _apply_regexes(at_cap, rules) == at_cap
+        assert _apply_regexes(at_cap + "a", rules) == "<masked>"
+
+    def test_long_string_kept_when_no_regex_active(self):
+        from stubsmith.privacy.masking import MAX_REGEX_SCAN_CHARS, _apply_regexes
+        long = "a" * (MAX_REGEX_SCAN_CHARS + 1)
+        assert _apply_regexes(long, compile_rules(["f"], [])) == long
 
 
 class TestHeaderAllowlist:

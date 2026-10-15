@@ -408,14 +408,14 @@ Placeholder values:
 - booleans → `False`
 - null     → left as null
 
-Kept strings still pass through a **regex backstop**.  The SDK's embedded
-backstop masks email addresses and 16-digit card numbers.  A project can sync
-additional regex rules via `anonymizer/rules.json`.
+A kept value is sent as it is.  The SDK does not look at a value to decide
+whether to mask it; only the keep rules and the project's own masks decide.
+Kept strings do pass through any regex masks in the project's global rules.
 
 **What this means for test assertions:**
 
-- Do NOT `assert result["email"] == "user@example.com"`.  Email values are
-  always masked by the regex backstop.
+- Do NOT `assert result["email"] == "user@example.com"`.  The email field has
+  no keep rule in this example, so it is masked.
 - DO `assert "email" in result` (presence check only).
 - DO `assert result["token"] == "<masked>"` to verify masking ran - but only
   when you need to assert the masking, not as a general-purpose equality check.

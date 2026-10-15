@@ -40,7 +40,7 @@ def test_create_order_returns_recorded_shape():
     assert "order_id" in order
     assert order["status"] == "confirmed"
     assert "total_cents" in order
-    # customer_email is masked by the regex backstop (email-shaped string).
+    # customer_email has no keep rule, so it is masked.
     assert "customer_email" in order
     assert order["customer_email"] == "<masked>"
     assert "created_at" in order

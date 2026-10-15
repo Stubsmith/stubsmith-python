@@ -9,8 +9,11 @@ exact parity guarantees:
   **no recursion** into the masked value.
 - **Regex masks**: applied to string values in declaration order.  The ``i``
   flag is honoured by prepending ``(?i)`` to the compiled pattern.  An empty
-  ``replace`` string becomes ``'<masked>'``.  Invalid patterns are silently
-  skipped.
+  ``replace`` string becomes ``'<masked>'``.  A pattern that does not compile
+  is not skipped: the rule set is marked unusable and every string it is
+  applied to becomes ``'<masked>'`` (see :func:`compile_rules`).  Strings
+  longer than :data:`MAX_REGEX_SCAN_CHARS` are masked without running any
+  regex.
 - **Lists** are recursed element-wise; other scalars (numbers, bools, None)
   pass through unchanged in rule-based masking.
 
@@ -51,10 +54,13 @@ generation.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import urllib.parse
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger("stubsmith")
 
 # ---------------------------------------------------------------------------
 # Header allowlist
@@ -82,6 +88,25 @@ class CompiledRules:
 
     field_masks: frozenset  # lowercased, stripped field names
     regex_masks: tuple      # tuple of (re.Pattern, replacement_str)
+    # True when at least one regex mask could not be compiled.  The rule's
+    # effect is unknown, so :func:`_apply_regexes` masks every string.
+    unusable: bool = False
+
+
+# Strings longer than this are replaced by ``'<masked>'`` without running any
+# regex mask.  A customer pattern can backtrack badly on long input, and
+# masking runs inside the host application's request path.  Only applies
+# while at least one regex mask is active.  Counts code points; the Node SDK
+# applies the same number to UTF-16 code units.
+MAX_REGEX_SCAN_CHARS = 65536
+
+_warned_unusable_pattern = False
+
+
+def _reset_masking_warnings_for_tests() -> None:
+    """Re-arm the once-per-process unusable-pattern warning."""
+    global _warned_unusable_pattern
+    _warned_unusable_pattern = False
 
 
 def compile_rules(
@@ -97,31 +122,84 @@ def compile_rules(
     regex_masks:
         List of ``{"pattern": ..., "replace": ..., "flags": ...}`` dicts.
         ``flags="i"`` causes ``(?i)`` to be prepended.  Empty ``replace``
-        becomes ``'<masked>'``.  Patterns that fail to compile are silently
-        dropped.
+        becomes ``'<masked>'``.  A pattern that fails to compile marks the
+        result :attr:`CompiledRules.unusable`, so every string is masked;
+        the first one per process logs a WARNING naming its index.  So does
+        any malformed entry (a non-list, a non-string field mask, a regex
+        mask that is not an object, or has an empty or non-string pattern or
+        a non-string replacement or flags): the rule's intent is unknown, so nothing is skipped.
 
     Returns
     -------
     CompiledRules
         Thread-safe, immutable compiled-rule set.
     """
-    fields = frozenset(
-        f.lower().strip() for f in (field_masks or []) if f is not None
-    )
+    unusable = False
+
+    def fail_closed(what: str, reason: Any) -> None:
+        # Dropping a rule would quietly send what it was meant to mask.  Fail
+        # closed instead: every string the rules are applied to gets masked.
+        global _warned_unusable_pattern
+        nonlocal unusable
+        unusable = True
+        if not _warned_unusable_pattern:
+            _warned_unusable_pattern = True
+            logger.warning(
+                "stubsmith: %s cannot be used: %s; every kept string will be "
+                "masked (further invalid rules are reported silently)",
+                what, reason,
+            )
+
+    fields_list: List[str] = []
+    if field_masks and not isinstance(field_masks, (list, tuple)):
+        fail_closed("field_masks", "not a list")
+        field_masks = []
+    for index, f in enumerate(field_masks or []):
+        if f is None:
+            continue
+        if not isinstance(f, str):
+            fail_closed(f"field mask at index {index}", "not a string")
+            continue
+        fields_list.append(f.lower().strip())
+    fields = frozenset(fields_list)
+
     compiled: List[Tuple[re.Pattern, str]] = []
-    for m in (regex_masks or []):
+    if regex_masks and not isinstance(regex_masks, (list, tuple)):
+        fail_closed("regex_masks", "not a list")
+        regex_masks = []
+    for index, m in enumerate(regex_masks or []):
+        what = f"regex mask at index {index}"
+        if not isinstance(m, dict):
+            fail_closed(what, "not an object")
+            continue
         pattern = m.get("pattern") or ""
         flags = m.get("flags") or ""
         replace = m.get("replace")
         if replace is None or replace == "":
             replace = "<masked>"
+        if not isinstance(pattern, str):
+            fail_closed(what, "the pattern is not a string")
+            continue
+        if pattern == "":
+            fail_closed(what, "the pattern is empty")
+            continue
+        if not isinstance(replace, str):
+            fail_closed(what, "the replacement is not a string")
+            continue
+        if not isinstance(flags, (str, list, tuple)):
+            fail_closed(what, "the flags are not a string")
+            continue
         if "i" in flags:
             pattern = "(?i)" + pattern
         try:
             compiled.append((re.compile(pattern), replace))
-        except re.error:
-            continue  # silently skip invalid patterns
-    return CompiledRules(field_masks=fields, regex_masks=tuple(compiled))
+        except Exception as exc:
+            # re.error, or OverflowError for a repeat count Python cannot
+            # represent (e.g. a{99999999999}).
+            fail_closed(what, exc)
+    return CompiledRules(
+        field_masks=fields, regex_masks=tuple(compiled), unusable=unusable
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -160,8 +238,8 @@ def mask_known(
             parsed = json.loads(body)
             masked_body = json.dumps(_mask_object(parsed, rules))
         except Exception:
-            # Non-JSON plain-text body: still run regex masks so that e.g.
-            # credit-card numbers in text/plain bodies are caught.  Matches
+            # Non-JSON plain-text body: still run regex masks so that a
+            # customer pattern also covers text/plain bodies.  Matches
             # the string branch of applyRulesToInterface in anonymizer.go.
             masked_body = _apply_regexes(body, rules)
 
@@ -195,7 +273,15 @@ def _mask_object(obj: Any, rules: CompiledRules) -> Any:
 
 
 def _apply_regexes(s: str, rules: CompiledRules) -> str:
-    """Apply regex masks in declaration order."""
+    """Apply regex masks in declaration order.
+
+    Returns ``'<masked>'`` when the rule set is unusable, or when a regex
+    would run on a string longer than :data:`MAX_REGEX_SCAN_CHARS`.
+    """
+    if rules.unusable:
+        return "<masked>"
+    if rules.regex_masks and len(s) > MAX_REGEX_SCAN_CHARS:
+        return "<masked>"
     out = s
     for pattern, replace in rules.regex_masks:
         out = pattern.sub(replace, out)

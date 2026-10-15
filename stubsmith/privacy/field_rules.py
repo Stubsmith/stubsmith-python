@@ -55,7 +55,7 @@ applies to query params and headers (with the additional header allowlist from
 
 Response body fields follow identical fail-closed semantics using the
 ``resp.`` namespace: every scalar is masked unless its response-body-relative
-path is in the effective keep set.  Kept strings still pass the regex backstop.
+path is in the effective keep set.
 
 Response headers are masked independently via the ``resp_header.`` namespace
 (``keep_resp_header``).  A ``header.`` keep rule for a request header does NOT
@@ -70,12 +70,13 @@ rules), every field whose name is in its ``field_masks`` is masked even when a
 path rule keeps it: JSON keys (the whole value beneath the key), form fields,
 query params and headers.  Names compare case-insensitively.
 
-Belt-and-suspenders regex
---------------------------
-String scalars that survive the "keep" check still have regex masks applied
-in order to catch residual PII patterns.  When the caller passes ``extra_rules``,
-those are used.  Otherwise the module-level
-:data:`_EMBEDDED_REGEX_MASKS` (email + credit-card patterns) are applied.
+Project regex masks
+-------------------
+String scalars that survive the "keep" check have the regex masks of
+``extra_rules`` applied, in order.  These are the customer's own patterns.
+The SDK has no built-in patterns of its own: without ``extra_rules`` a kept
+value is sent as it is.  Nothing here reads a value to decide whether to mask
+it; that is decided by the keep rules and field masks alone.
 """
 
 from __future__ import annotations
@@ -95,26 +96,12 @@ from .placeholders import generate as _ph_generate, get_salt as _ph_get_salt
 
 
 # ---------------------------------------------------------------------------
-# Embedded default regex masks (belt-and-suspenders backstop)
+# No project rules synced
 # ---------------------------------------------------------------------------
 
-_EMBEDDED_REGEX_MASKS: CompiledRules = compile_rules(
-    field_masks=[],
-    regex_masks=[
-        # Email addresses
-        {
-            "pattern": r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b",
-            "replace": "<masked>",
-            "flags": "",
-        },
-        # Credit/debit card - 16 contiguous digits (allow optional space/dash separators)
-        {
-            "pattern": r"\b(?:\d[ \-]?){15}\d\b",
-            "replace": "<masked>",
-            "flags": "",
-        },
-    ],
-)
+# Used when the caller passes no ``extra_rules``.  The SDK has no built-in
+# patterns: what a keep rule keeps is sent as it is.
+_NO_PROJECT_RULES: CompiledRules = compile_rules(field_masks=[], regex_masks=[])
 
 
 # ---------------------------------------------------------------------------
@@ -293,8 +280,7 @@ def apply_field_rules(
 
     Fail-closed: every scalar value is masked unless its namespaced path has
     an explicit ``keep`` rule.  String scalars that survive the keep check
-    have *extra_rules* (or the embedded defaults) applied for belt-and-
-    suspenders PII removal.
+    have the regex masks of *extra_rules* applied, when given.
 
     Parameters
     ----------
@@ -311,8 +297,8 @@ def apply_field_rules(
     extra_rules:
         Optional project-level :class:`~stubsmith.privacy.masking.CompiledRules`.
         Its ``field_masks`` mask matching fields even when kept, and its regex
-        masks run on kept strings.  When ``None``, the built-in
-        :data:`_EMBEDDED_REGEX_MASKS` are used as a backstop.
+        masks run on kept strings.  When ``None``, kept values are sent as
+        they are.
     email_domain:
         Domain to use for generated email placeholders (see
         :mod:`~stubsmith.privacy.placeholders`).  ``None`` defers to the
@@ -323,7 +309,7 @@ def apply_field_rules(
     tuple[str, dict, str]
         ``(masked_body, masked_headers, masked_query_string)``
     """
-    regex = extra_rules if extra_rules is not None else _EMBEDDED_REGEX_MASKS
+    regex = extra_rules if extra_rules is not None else _NO_PROJECT_RULES
     ct = _normalise_ct(content_type)
     salt = _ph_get_salt()
 
@@ -387,8 +373,8 @@ def apply_resp_field_rules(
     extra_rules:
         Optional project-level :class:`~stubsmith.privacy.masking.CompiledRules`.
         Its ``field_masks`` mask matching fields even when kept, and its regex
-        masks run on kept strings.  When ``None``, the built-in
-        :data:`_EMBEDDED_REGEX_MASKS` are used as a backstop.
+        masks run on kept strings.  When ``None``, kept values are sent as
+        they are.
     resp_status:
         HTTP response status code.  When provided, status-scoped rules for
         this status are applied on top of the generic ``resp.`` /
@@ -404,7 +390,7 @@ def apply_resp_field_rules(
     tuple[str, dict]
         ``(masked_resp_body, masked_resp_headers)``
     """
-    regex = extra_rules if extra_rules is not None else _EMBEDDED_REGEX_MASKS
+    regex = extra_rules if extra_rules is not None else _NO_PROJECT_RULES
     ct = _normalise_ct(content_type)
     salt = _ph_get_salt()
 
@@ -592,7 +578,7 @@ def _walk_and_mask(
         return None
 
     if prefix in keep_set and not forced:
-        # Keep this value; run regex backstop on strings.
+        # Keep this value; the project's regex masks still run on strings.
         if isinstance(obj, str):
             return _apply_regexes(obj, regex)
         return obj

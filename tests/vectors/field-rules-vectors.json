@@ -114,7 +114,7 @@
     },
     {
       "name": "form-encoded-keep-mask",
-      "description": "Form-encoded body: flat keys; kept values pass (regex-backstopped), masked values → \"<masked>\" per occurrence.",
+      "description": "Form-encoded body: flat keys; kept values pass as is, masked values → \"<masked>\" per occurrence.",
       "field_rules": [
         {"path": "body.username", "action": "keep"}
       ],
@@ -236,7 +236,7 @@
     },
     {
       "name": "query-keep-mask",
-      "description": "query. namespace: kept param passes through (regex-backstopped); other params → \"<masked>\".",
+      "description": "query. namespace: kept param passes through as is; other params → \"<masked>\".",
       "field_rules": [
         {"path": "query.page", "action": "keep"}
       ],
@@ -376,8 +376,8 @@
       }
     },
     {
-      "name": "regex-backstop-email-on-kept",
-      "description": "Regex backstop on kept strings: a kept field containing an email address is further masked by the email pattern.",
+      "name": "kept-email-sent-verbatim",
+      "description": "No built-in patterns: a kept field containing an email address is sent as it is.",
       "field_rules": [
         {"path": "body.contact", "action": "keep"}
       ],
@@ -391,7 +391,7 @@
         "resp_headers": {}
       },
       "expected": {
-        "masked_body": {"contact": "<masked>", "other": "<masked>"},
+        "masked_body": {"contact": "user@example.com", "other": "<masked>"},
         "masked_headers": {},
         "masked_query": {},
         "masked_resp_body": "",
@@ -399,8 +399,8 @@
       }
     },
     {
-      "name": "regex-backstop-card-on-kept",
-      "description": "Regex backstop on kept strings: a kept field containing a 16-digit card number is masked by the card pattern.",
+      "name": "kept-card-number-sent-verbatim",
+      "description": "No built-in patterns: a kept field containing a 16-digit card number is sent as it is.",
       "field_rules": [
         {"path": "body.payment", "action": "keep"}
       ],
@@ -414,7 +414,7 @@
         "resp_headers": {}
       },
       "expected": {
-        "masked_body": {"payment": "<masked>", "plan": "<masked>"},
+        "masked_body": {"payment": "4111111111111111", "plan": "<masked>"},
         "masked_headers": {},
         "masked_query": {},
         "masked_resp_body": "",
@@ -499,8 +499,8 @@
       }
     },
     {
-      "name": "query-regex-backstop",
-      "description": "Regex backstop applies to kept query values: kept query param containing email address → email pattern replaces it.",
+      "name": "query-kept-email-sent-verbatim",
+      "description": "No built-in patterns on query values: a kept query param containing an email address is sent as it is.",
       "field_rules": [
         {"path": "query.email", "action": "keep"}
       ],
@@ -516,7 +516,7 @@
       "expected": {
         "masked_body": "",
         "masked_headers": {},
-        "masked_query": {"email": ["<masked>"], "page": ["<masked>"]},
+        "masked_query": {"email": ["user@example.com"], "page": ["<masked>"]},
         "masked_resp_body": "",
         "masked_resp_headers": {}
       }

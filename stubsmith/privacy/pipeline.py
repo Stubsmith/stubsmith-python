@@ -178,10 +178,9 @@ class PrivacyPipeline:
         key_paths = extract_keypaths(req_body, req_ct)
         resp_key_paths = extract_keypaths(resp_body, resp_ct)
         # Observed value types: classified from raw values at the edge, before masking.
-        # A type label is not a value - sending the type name does not erode the
-        # paths-only invariant.  Only recognizable formats are classified (uuid, email,
-        # iso8601, …); character composition is never inspected, so the label carries no
-        # content-derived metadata beyond the format itself.
+        # classify_scalar reads the value's content to pick a label (uuid, email,
+        # iso8601, …), and the label is sent.  It is a label only: no masking decision
+        # reads it.  What is masked is decided by the customer's rules alone.
         req_value_types = extract_value_types(req_body, req_ct)
         resp_value_types = extract_value_types(resp_body, resp_ct)
         req_header_names = sorted(k.lower() for k in req_headers)
@@ -300,9 +299,8 @@ class PrivacyPipeline:
         elif isinstance(lookup, CompiledFieldRules):
             # Modern mode - per-fingerprint field rules.
             # Pass synced project defaults so the project's field_masks and
-            # regex masks are honoured on kept values; falls back to
-            # field_rules._EMBEDDED_REGEX_MASKS when no project_defaults have
-            # been synced yet (returns None).
+            # regex masks are honoured on kept values.  None when no
+            # project_defaults have been synced; kept values then go as is.
             novel = False
             project_defaults = self._cache.get_project_defaults()
             email_domain = self._cache.get_email_placeholder_domain()

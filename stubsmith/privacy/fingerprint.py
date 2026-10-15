@@ -58,12 +58,13 @@ _VOCAB = frozenset({
 # classify_scalar - most-specific patterns first so a UUID is never caught by
 # the generic string fallback.
 #
-# Principle: observed labels come from RECOGNIZABLE FORMATS ONLY.
-# Character composition (e.g. "has digits and letters, long, no spaces") is
-# NOT a format - checking it derives metadata from the character content of
-# the real value, which erodes the paths-only invariant.  opaque_token is
-# reachable only via the server's name-based inference (fields named "token",
-# "secret", "key", "hash"), where the source is the field name, not the value.
+# These patterns read the content of the real value, and the resulting label is
+# sent to the server.  The dashboard shows labels and uses them to suggest a
+# type for a mask rule; no masking decision in the SDK reads them.  Labels come from
+# recognizable formats; there is no generic character-composition label (e.g.
+# "has digits and letters, long, no spaces").  opaque_token is reachable only
+# via the server's name-based inference (fields named "token", "secret", "key",
+# "hash"), where the source is the field name, not the value.
 _RE_UUID = re.compile(
     r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
     re.IGNORECASE,
@@ -147,10 +148,9 @@ def classify_scalar(value: Any) -> Optional[str]:
             return "decimal_amount"
 
         # ── Fallback ─────────────────────────────────────────────────────
-        # opaque_token is NOT emitted here. Observed labels come from
-        # recognizable formats only; character composition is not a format
-        # and reading it would derive content-derived metadata from the value.
-        # opaque_token remains reachable via the server's name-based inference.
+        # opaque_token is NOT emitted here: there is no generic
+        # character-composition label.  opaque_token remains reachable via the
+        # server's name-based inference.
         return "free_text"
     except Exception:
         return None
