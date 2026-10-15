@@ -91,6 +91,7 @@ from .masking import (
     CompiledRules,
     _apply_regexes,
     compile_rules,
+    parse_form,
 )
 from .placeholders import generate as _ph_generate, get_salt as _ph_get_salt
 
@@ -607,8 +608,10 @@ def _apply_form_rules(
 ) -> str:
     """Apply field rules to a form-encoded body string."""
     try:
-        parsed = urllib.parse.parse_qs(body, keep_blank_values=True)
+        parsed = parse_form(body)
     except Exception:
+        return "<masked>"
+    if parsed is None:
         return "<masked>"
     out: Dict[str, List[str]] = {}
     for k, vals in parsed.items():

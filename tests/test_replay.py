@@ -136,6 +136,15 @@ class TestRoundTrip:
         assert resp.json() == {"id": 42, "name": "Alice"}
         assert resp.headers["content-type"] == "application/json"
 
+    def test_url_userinfo_matches_the_captured_domain(self):
+        """Captures never carry userinfo, so replay matches without it too."""
+        bundle = _bundle(
+            _endpoint("GET", "/api/users/{id}", [_stub(_FP_EMPTY_GET, [_variant(200, "{}")])], is_dynamic=True)
+        )
+        with replay(bundle=bundle):
+            resp = requests.get(f"http://usr:pw@{_DOMAIN}/api/users/42")
+        assert resp.status_code == 200
+
     def test_elapsed_comes_from_bundle(self):
         """response.elapsed is populated from the variant's duration_ms."""
         bundle = _bundle(

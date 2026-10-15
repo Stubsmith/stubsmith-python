@@ -41,6 +41,8 @@ import re
 import urllib.parse
 from typing import Any, Dict, List, Optional
 
+from .masking import parse_form
+
 
 # ---------------------------------------------------------------------------
 # Observed value type classifier
@@ -181,8 +183,10 @@ def extract_value_types(body: str, content_type: str = "") -> Dict[str, str]:
     try:
         if ct == "application/x-www-form-urlencoded":
             try:
-                parsed = urllib.parse.parse_qs(body, keep_blank_values=True)
+                parsed = parse_form(body)
             except Exception:
+                return {}
+            if parsed is None:
                 return {}
             for key, vals in parsed.items():
                 if not vals:
@@ -227,8 +231,8 @@ def extract_keypaths(body: str, content_type: str = "") -> List[str]:
     ct = _normalise_ct(content_type)
     if ct == "application/x-www-form-urlencoded":
         try:
-            parsed = urllib.parse.parse_qs(body, keep_blank_values=True)
-            return list(parsed.keys())
+            parsed = parse_form(body)
+            return list(parsed.keys()) if parsed is not None else []
         except Exception:
             return []
     try:
@@ -409,8 +413,10 @@ def _extract_value_pairs(
     try:
         if ct == "application/x-www-form-urlencoded":
             try:
-                parsed_form = urllib.parse.parse_qs(body, keep_blank_values=True)
+                parsed_form = parse_form(body)
             except Exception:
+                return []
+            if parsed_form is None:
                 return []
             for path in value_paths:
                 # Form-encoded bodies are flat; use path as a literal key name.

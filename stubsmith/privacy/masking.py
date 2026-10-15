@@ -221,7 +221,8 @@ def mask_known(
     - Form-encoded bodies: field names in ``rules.field_masks`` have their
       values replaced; remaining values have regex masks applied.
     - Query params: same logic as form-encoded.
-    - Unrecognised or non-parseable bodies are returned unchanged.
+    - Unrecognised or non-parseable bodies, including a form body that is not
+      ``key=value`` pairs, have only the regex masks applied.
 
     Returns
     -------
@@ -232,7 +233,11 @@ def mask_known(
     ct = _normalise_ct(content_type)
 
     if ct == "application/x-www-form-urlencoded":
-        masked_body = _mask_form_known(body, rules)
+        form = parse_form(body)
+        if form is not None:
+            masked_body = _mask_form_known(form, rules)
+        else:
+            masked_body = _apply_regexes(body, rules)
     else:
         try:
             parsed = json.loads(body)
@@ -303,7 +308,8 @@ def mask_all(
     - Header allowlist still applies (safe metadata headers are kept).
     - JSON: structure and keys preserved; strings → ``'<masked>'``,
       numbers → ``0``, booleans → ``False``, ``None`` stays ``None``.
-    - Form-encoded: field names kept, all values → ``'<masked>'``.
+    - Form-encoded: field names kept, all values → ``'<masked>'``. A form
+      body with a segment that has no ``=`` → ``'<masked>'``.
     - Any other body type → ``'<masked>'`` string.
     - All query param values → ``'<masked>'``.
 
@@ -317,9 +323,12 @@ def mask_all(
 
     if ct == "application/x-www-form-urlencoded":
         try:
-            parsed = urllib.parse.parse_qs(body, keep_blank_values=True)
-            out = {k: ["<masked>"] * len(v) for k, v in parsed.items()}
-            masked_body = urllib.parse.urlencode(out, doseq=True)
+            parsed = parse_form(body)
+            if parsed is None:
+                masked_body = "<masked>"
+            else:
+                out = {k: ["<masked>"] * len(v) for k, v in parsed.items()}
+                masked_body = urllib.parse.urlencode(out, doseq=True)
         except Exception:
             masked_body = "<masked>"
     else:
@@ -363,12 +372,8 @@ def _mask_headers(headers: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
-def _mask_form_known(body: str, rules: CompiledRules) -> str:
-    """Apply *rules* to a form-encoded body string."""
-    try:
-        parsed = urllib.parse.parse_qs(body, keep_blank_values=True)
-    except Exception:
-        return body
+def _mask_form_known(parsed: Dict[str, List[str]], rules: CompiledRules) -> str:
+    """Apply *rules* to a parsed form-encoded body."""
     out: Dict[str, List[str]] = {}
     for k, vals in parsed.items():
         if k.lower() in rules.field_masks:
@@ -414,3 +419,16 @@ def _mask_query_all(query_string: str) -> str:
 def _normalise_ct(content_type: str) -> str:
     """Lowercase and strip charset / boundary params."""
     return (content_type or "").lower().split(";")[0].strip()
+
+
+def parse_form(body: str) -> Optional[Dict[str, List[str]]]:
+    """Parse a form-encoded body, or return ``None`` if it is not one.
+
+    ``parse_qs`` turns a segment without ``=`` into a key with an empty value,
+    so free text labelled as a form would be sent as a field name. A body with
+    any non-empty ``&``-separated segment that has no ``=`` is therefore not a
+    form, and callers treat it like any other unparseable body.
+    """
+    if any(seg and "=" not in seg for seg in (body or "").split("&")):
+        return None
+    return urllib.parse.parse_qs(body, keep_blank_values=True)

@@ -727,6 +727,19 @@ every kept string is masked while such an entry is in the rules, and one
 `WARNING` on the `stubsmith` logger names it. Fix or remove the entry to get
 kept values back.
 
+**Fixed: a free-text body labelled as a form is masked as a whole.** A
+request or response body with `Content-Type: application/x-www-form-urlencoded`
+that is not `key=value` pairs, such as free text, was sent with the whole text
+as a field name. A form body in which any `&`-separated part has no `=` is now
+sent as `<masked>`, and no field names or value types are taken from it.
+
+**Fixed: URL credentials are no longer sent.** For a URL such as
+`http://user:password@host/`, the capture's `domain` held `user:password@host`.
+It now holds only the host and port. `replay()` matches such a URL on its
+host and port as well. A bundle pulled from captures recorded with such a
+URL by an earlier release holds the credentials in its domain and no longer
+matches; record and pull it again.
+
 **Regex masks are not run on very long strings.** While a regex mask is
 active, a kept string longer than 65,536 characters is masked without running
 any pattern, so a pattern that backtracks badly cannot stall your requests.

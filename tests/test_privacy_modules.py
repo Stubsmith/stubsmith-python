@@ -1279,3 +1279,52 @@ class TestStatusScopedFieldRules:
         headers = {"x-custom": "val", "content-type": "application/json"}
         _, mh = self._arf()("", headers, "", rules, resp_status=200)
         assert mh["x-custom"] == "<masked>"
+
+
+# ---------------------------------------------------------------------------
+# A form body that is not key=value pairs is never sent as field names
+# ---------------------------------------------------------------------------
+
+class TestFreeTextFormBody:
+    FORM = "application/x-www-form-urlencoded"
+    TEXT = "Dear SECRET, your PIN is 1234"
+
+    def test_parse_form_rejects_a_segment_without_equals(self):
+        from stubsmith.privacy.masking import parse_form
+        assert parse_form(self.TEXT) is None
+        assert parse_form("a=1&Dear SECRET") is None
+        assert parse_form("a=1&&b=&c=x=y&") == {"a": ["1"], "b": [""], "c": ["x=y"]}
+        assert parse_form("") == {}
+
+    @pytest.mark.parametrize("body", [TEXT, "a=1&Dear SECRET"])
+    def test_mask_all_masks_the_whole_body(self, body):
+        masked, _, _ = mask_all(body, {}, "", self.FORM)
+        assert masked == "<masked>"
+
+    def test_mask_all_keeps_a_valid_form(self):
+        masked, _, _ = mask_all("a=1&b=", {}, "", self.FORM)
+        assert masked == "a=%3Cmasked%3E&b=%3Cmasked%3E"
+
+    def test_no_key_paths_value_types_or_value_pairs(self):
+        from stubsmith.privacy.fingerprint import extract_value_types, _extract_value_pairs
+        for body in (self.TEXT, "a=1&Dear SECRET"):
+            assert extract_keypaths(body, self.FORM) == []
+            assert extract_value_types(body, self.FORM) == {}
+            assert _extract_value_pairs(body, self.FORM, ["a", "Dear SECRET"]) == []
+
+    def test_field_rules_mask_the_whole_body_even_with_a_keep(self):
+        from stubsmith.privacy.field_rules import compile_field_rules, apply_field_rules, apply_resp_field_rules
+        rules = compile_field_rules([
+            {"path": "body.a", "action": "keep"},
+            {"path": "body.Dear SECRET", "action": "keep"},
+            {"path": "resp.a", "action": "keep"},
+        ])
+        mb, _, _ = apply_field_rules("a=1&Dear SECRET", {}, "", self.FORM, rules)
+        assert mb == "<masked>"
+        rb, _ = apply_resp_field_rules(self.TEXT, {}, self.FORM, rules, resp_status=200)
+        assert rb == "<masked>"
+
+    def test_mask_known_treats_it_as_text(self):
+        rules = compile_rules([], [{"pattern": "PIN is \\d+", "replace": "PIN"}])
+        masked, _, _ = mask_known(self.TEXT, {}, "", self.FORM, rules)
+        assert masked == "Dear SECRET, your PIN"

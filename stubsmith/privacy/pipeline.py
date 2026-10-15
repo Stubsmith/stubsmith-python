@@ -152,7 +152,8 @@ class PrivacyPipeline:
 
         # -- 1. Parse URL -----------------------------------------------
         parsed = urllib.parse.urlparse(raw_url)
-        domain = parsed.netloc or ""
+        # host[:port] only: userinfo (``user:password@``) never leaves the SDK.
+        domain = (parsed.netloc or "").rpartition("@")[2]
         path = parsed.path or "/"
         query_string = parsed.query or ""
 

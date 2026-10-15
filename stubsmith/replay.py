@@ -1248,7 +1248,8 @@ class ReplayContext:
         # ── Parse the prepared URL ────────────────────────────────────────
         url = request.url or ""
         parsed = urlparse(url)
-        domain = parsed.netloc        # e.g. "api.example.com:8080"
+        # e.g. "api.example.com:8080"; userinfo dropped as in captures.
+        domain = (parsed.netloc or "").rpartition("@")[2]
         path = parsed.path or "/"
         query_string = parsed.query or ""
         method = (request.method or "GET").upper()
