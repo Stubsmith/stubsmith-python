@@ -375,11 +375,11 @@ Reading it:
   is `false`, not because the value was read. The literal values here are
   `"Accept": "*/*"` and `"Accept-Encoding"`, allowlisted transport headers a
   stub needs in order to be replayed.
-- **Seven header values are always sent as they are**, in requests and
+- **Six header values are always sent as they are**, in requests and
   responses: `content-type`, `content-length`, `accept`, `accept-encoding`,
-  `accept-language`, `host` and `transfer-encoding`. Every other header value,
-  `user-agent` and `cache-control` included, is `<masked>` unless a keep rule
-  keeps it. Header *names*, like JSON keys, form field names and query
+  `host` and `transfer-encoding`. Every other header value, `user-agent`,
+  `cache-control` and `accept-language` included, is `<masked>` unless a keep
+  rule keeps it. Header *names*, like JSON keys, form field names and query
   parameter names, are structure and are sent as they are. In a form body
   that is all `key=value` pairs, whatever stands before each `=` is a name,
   so free text such as `Hi Bob, ref=123` sends `Hi Bob, ref` as a name.
@@ -748,16 +748,17 @@ host and port as well. A bundle pulled from captures recorded with such a
 URL by an earlier release holds the credentials in its domain and no longer
 matches; record and pull it again.
 
-**`User-Agent` and `Cache-Control` values are masked by default.** Both can
-carry data about your users or your customers, so they are no longer on the
-header allowlist. In requests and responses their values are sent as
-`<masked>` unless you keep them: a `header.user-agent` or
-`header.cache-control` keep rule for the request, `resp_header.user-agent` or
-`resp_header.cache-control` for the response. The names are still sent.
+**`User-Agent`, `Cache-Control` and `Accept-Language` values are masked by
+default.** All three can carry data about your users or your customers, so
+they are no longer on the header allowlist. In requests and responses their
+values are sent as `<masked>` unless you keep them: a `header.user-agent`,
+`header.cache-control` or `header.accept-language` keep rule for the request,
+`resp_header.user-agent`, `resp_header.cache-control` or
+`resp_header.accept-language` for the response. The names are still sent.
 Replayed responses carry `Cache-Control: <masked>` unless you keep
-`resp_header.cache-control`. The seven values still sent as they are:
-`content-type`, `content-length`, `accept`, `accept-encoding`,
-`accept-language`, `host` and `transfer-encoding`.
+`resp_header.cache-control`. The six values still sent as they are:
+`content-type`, `content-length`, `accept`, `accept-encoding`, `host` and
+`transfer-encoding`.
 
 **Regex masks are not run on very long strings.** While a regex mask is
 active, a kept string longer than 65,536 characters is masked without running

@@ -421,9 +421,9 @@ Kept strings do pass through any regex masks in the project's global rules.
   when you need to assert the masking, not as a general-purpose equality check.
 
 **Request headers** follow an allowlist: only `content-type`, `content-length`,
-`accept`, `accept-encoding`, `accept-language`, `host` and `transfer-encoding`
-pass through; every other request header becomes `"<masked>"` unless a
-`header.` keep rule keeps it. That includes `user-agent` and `cache-control`.
+`accept`, `accept-encoding`, `host` and `transfer-encoding` pass through;
+every other request header becomes `"<masked>"` unless a `header.` keep rule
+keeps it. That includes `user-agent`, `cache-control` and `accept-language`.
 
 ## Path templating and dynamic routes
 
