@@ -160,7 +160,7 @@
     },
     {
       "name": "header-allowlist",
-      "description": "Headers: HEADER_ALLOWLIST (9 names) kept without an explicit keep rule; all others → \"<masked>\". Verifies all 9 allowlist names.",
+      "description": "Headers: HEADER_ALLOWLIST (7 names) kept without an explicit keep rule; all others → \"<masked>\", user-agent and cache-control included. Verifies all 7 allowlist names.",
       "field_rules": [],
       "input": {
         "body": "",
@@ -191,9 +191,9 @@
           "accept": "application/json",
           "accept-encoding": "gzip",
           "accept-language": "en-US",
-          "user-agent": "stubsmith/1.0",
+          "user-agent": "<masked>",
           "host": "api.example.com",
-          "cache-control": "no-cache",
+          "cache-control": "<masked>",
           "transfer-encoding": "chunked",
           "authorization": "<masked>",
           "x-custom": "<masked>"
@@ -201,6 +201,80 @@
         "masked_query": {},
         "masked_resp_body": "",
         "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "header-user-agent-cache-control-masked-by-default",
+      "description": "user-agent and cache-control are not on the allowlist: without a keep rule their values are \"<masked>\" in requests and responses. Names stay as they are.",
+      "field_rules": [],
+      "input": {
+        "body": "",
+        "content_type": "",
+        "headers": {
+          "User-Agent": "acme-app/2.1 (customer 4471)",
+          "Cache-Control": "no-cache",
+          "Accept": "application/json"
+        },
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {
+          "Cache-Control": "private, max-age=60",
+          "User-Agent": "upstream/1.0",
+          "Content-Type": "application/json"
+        }
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {
+          "User-Agent": "<masked>",
+          "Cache-Control": "<masked>",
+          "Accept": "application/json"
+        },
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {
+          "Cache-Control": "<masked>",
+          "User-Agent": "<masked>",
+          "Content-Type": "application/json"
+        }
+      }
+    },
+    {
+      "name": "header-user-agent-cache-control-kept",
+      "description": "A header. keep rule sends a request user-agent or cache-control value as is; a resp_header. keep rule does the same for the response. Each namespace keeps only its own side.",
+      "field_rules": [
+        {"path": "header.user-agent", "action": "keep"},
+        {"path": "header.cache-control", "action": "keep"},
+        {"path": "resp_header.cache-control", "action": "keep"}
+      ],
+      "input": {
+        "body": "",
+        "content_type": "",
+        "headers": {
+          "User-Agent": "acme-app/2.1 (customer 4471)",
+          "Cache-Control": "no-cache"
+        },
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {
+          "Cache-Control": "private, max-age=60",
+          "User-Agent": "upstream/1.0"
+        }
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {
+          "User-Agent": "acme-app/2.1 (customer 4471)",
+          "Cache-Control": "no-cache"
+        },
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {
+          "Cache-Control": "private, max-age=60",
+          "User-Agent": "<masked>"
+        }
       }
     },
     {

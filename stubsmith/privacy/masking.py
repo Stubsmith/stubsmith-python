@@ -24,7 +24,11 @@ values are kept.  All other header values are replaced with ``'<masked>'`` in
 both :func:`mask_known` and :func:`mask_all`::
 
     content-type, content-length, accept, accept-encoding,
-    accept-language, user-agent, host, cache-control, transfer-encoding
+    accept-language, host, transfer-encoding
+
+The allowlist applies to request and response headers alike.  ``user-agent``
+and ``cache-control`` are not on it: their values are masked unless a
+``header.`` or ``resp_header.`` keep rule keeps them.
 
 Fail-closed masking (:func:`mask_all`)
 ---------------------------------------
@@ -72,9 +76,7 @@ HEADER_ALLOWLIST: frozenset = frozenset({
     "accept",
     "accept-encoding",
     "accept-language",
-    "user-agent",
     "host",
-    "cache-control",
     "transfer-encoding",
 })
 
