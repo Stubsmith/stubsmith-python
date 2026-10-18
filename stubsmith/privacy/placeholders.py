@@ -102,9 +102,7 @@ def generate(
         value's type is returned - unchanged behaviour for all existing users.
     email_domain:
         Domain to use for generated email addresses, e.g. ``"acme.stub.invalid"``.
-        The Go ingest service re-masks any email whose domain does not match the
-        project placeholder domain, so this must agree with what the backend
-        expects.  Defaults to :data:`DEFAULT_EMAIL_DOMAIN` (``"stub.invalid"``).
+        Defaults to :data:`DEFAULT_EMAIL_DOMAIN` (``"stub.invalid"``).
 
     Returns
     -------
@@ -255,8 +253,8 @@ def _gen_email(b: bytes, domain: str) -> str:
     """Generate a deterministic email address at *domain*.
 
     Local part is eight lowercase hex characters; format satisfies the
-    ``[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}`` shape expected
-    by the ingest backstop regex.
+    ``[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}`` shape of a common
+    email regex.
     """
     local = b[:4].hex()
     return f"{local}@{domain}"

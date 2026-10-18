@@ -193,8 +193,7 @@ def _filter_leaf_paths(paths: List[str]) -> List[str]:
     always kept, including an empty object that differs as a unit with no
     child paths in the diff.
 
-    This mirrors ``filterLeafPaths`` in ``ui/src/lib/fieldRules.js``, which
-    applies the same suppression when rendering the field-rules review UI.
+    The dashboard's field-rules review applies the same suppression.
 
     Parameters
     ----------

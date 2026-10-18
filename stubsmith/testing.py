@@ -92,8 +92,8 @@ except ImportError:
 #   null     → None       (not in this set; None just stays None)
 #
 # "<masked-cc>" is not emitted by the SDK itself.  It comes from a project's
-# synced regex rule set (anonymizer/rules.json), which replaces 16-digit card
-# numbers.  The SDK has no built-in patterns.
+# own regex mask, for example one that replaces 16-digit card numbers with it.
+# The SDK has no built-in patterns.
 #
 # Tests must NEVER assert that a field equals one of these values (e.g. that
 # a name field equals "<masked>") unless you are explicitly verifying that

@@ -167,8 +167,7 @@ fingerprints across 8 endpoints.
 > **Then run Step 2 again.**  This is not optional, for two independent reasons.
 >
 > Ingest stores **no capture row at all** for a pending fingerprint - only
-> approved fingerprints may produce captures (`ingest-go/main.go`, the pending
-> branch).  A fingerprint approved after its traffic ran therefore has nothing
+> approved fingerprints may produce captures.  A fingerprint approved after its traffic ran therefore has nothing
 > recorded, and `stubsmith pull` reports it as `degraded`: the stub exists, has
 > no variants, and replay raises `StubNotFound` for it.
 >

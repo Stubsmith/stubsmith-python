@@ -1,8 +1,8 @@
 """
 Request/response masking - field masks, regex masks, and fail-closed masking.
 
-This module is a Python port of ``ingest-go/anonymizer.go`` with the following
-exact parity guarantees:
+This module applies the project's field and regex masks with these
+guarantees:
 
 - **Field masks**: case-insensitive key comparison (both sides lowercased).
   When a key matches, the entire value is replaced with ``'<masked>'`` with
@@ -38,16 +38,14 @@ stays ``None``.  Structure (dicts, lists) and keys are preserved.  Form-encoded
 bodies keep their field names but replace all values with ``'<masked>'``.
 Non-JSON, non-form-encoded bodies become the string ``'<masked>'``.
 
-Parity note - divergence from ``ingest-go/anonymizer.go``
-----------------------------------------------------------
+Salted placeholders
+-------------------
 When ``STUBSMITH_MASK_SALT`` is set in the SDK process environment, the
 path-based masker in :mod:`~stubsmith.privacy.field_rules` may emit
 format-preserving placeholders (ISO 8601 timestamps, UUIDs, IBANs, etc.)
 via :mod:`~stubsmith.privacy.placeholders` rather than the constant
-``"<masked>"`` / ``0`` / ``False`` values.  This diverges from the Go ingest
-server's backstop masker, which never has access to the salt and always emits
-constant placeholders.  The divergence is intentional: the salt is edge-local
-by design so that the server structurally cannot generate these values.
+``"<masked>"`` / ``0`` / ``False`` values.  The salt stays in your process by
+design, so the server structurally cannot generate these values.
 
 :func:`mask_all` (this module's fail-closed path) is NOT affected - it has no
 field-type context and remains constant-only.  Only the rule-based path in
@@ -97,8 +95,7 @@ class CompiledRules:
 # Strings longer than this are replaced by ``'<masked>'`` without running any
 # regex mask.  A customer pattern can backtrack badly on long input, and
 # masking runs inside the host application's request path.  Only applies
-# while at least one regex mask is active.  Counts code points; the Node SDK
-# applies the same number to UTF-16 code units.
+# while at least one regex mask is active.  Counts code points.
 MAX_REGEX_SCAN_CHARS = 65536
 
 _warned_unusable_pattern = False
@@ -245,8 +242,7 @@ def mask_known(
             masked_body = json.dumps(_mask_object(parsed, rules))
         except Exception:
             # Non-JSON plain-text body: still run regex masks so that a
-            # customer pattern also covers text/plain bodies.  Matches
-            # the string branch of applyRulesToInterface in anonymizer.go.
+            # customer pattern also covers text/plain bodies.
             masked_body = _apply_regexes(body, rules)
 
     masked_query = _mask_query_known(query_params, rules)
@@ -256,7 +252,7 @@ def mask_known(
 def _mask_object(obj: Any, rules: CompiledRules) -> Any:
     """Recursively apply *rules* to a parsed JSON structure.
 
-    Matches ``applyRulesToInterface`` in ``ingest-go/anonymizer.go`` exactly:
+    Rules:
     - dict: if lowercased key is in field_masks → replace whole value with
       ``'<masked>'``, no recursion.  Otherwise recurse.
     - list: recurse into each element.

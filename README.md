@@ -13,8 +13,9 @@ Masking is applied **in this SDK**, in your own process, before any capture
 leaves it: the ingest service receives masked bodies plus structural names
 (field paths, header names, query-parameter names), never original values.  A
 field with no explicit `keep` rule is masked, so a field the rules do not
-mention cannot leak.  The server runs pattern backstops on what arrives, but it
-is a second line of defence, not the masking layer.
+mention cannot leak.  The server does not inspect values; the only content rules
+it enforces are replacing image bodies with a placeholder, and storing a path
+under its path pattern.
 
 ---
 
@@ -726,6 +727,10 @@ field is sent as it is, even when it holds an email address or a card number.
 email address, a card number or other personal data, remove the `keep` rule,
 or add a field mask or regex mask for it in the project's global rules.
 
+**Value-type labels never mask.** The SDK still recognises formats such as
+`email` or `iban` and reports them as labels in `req_value_types` and
+`resp_value_types`. A label is only a label: it never masks or keeps a value.
+
 **A customer rule that cannot be used masks instead of being skipped.** A
 regex mask whose pattern does not compile used to be dropped without a word,
 so the values it was meant to mask went out, and a malformed entry in the
@@ -784,9 +789,9 @@ application's own requests are never delayed.
 
 **Value-type labels and ID rules come from a shared spec.** The labels the SDK
 reports for observed values and the rules for ID segments are generated from
-`tools/classifiers/classifiers.json`, the same spec the Node SDK uses. Captures
-now carry `classifier_spec_version`, so the server can tell which version of
-the labels a capture used. The labels and rules themselves are unchanged.
+`tools/classifiers/classifiers.json`, the same spec the Stubsmith server uses.
+Captures now carry `classifier_spec_version`, so the server can tell which
+version of the labels a capture used. The labels and rules themselves are unchanged.
 
 ### 0.7.1
 
