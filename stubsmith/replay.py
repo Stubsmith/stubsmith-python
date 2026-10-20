@@ -193,8 +193,7 @@ def _filter_leaf_paths(paths: List[str]) -> List[str]:
     always kept, including an empty object that differs as a unit with no
     child paths in the diff.
 
-    This mirrors ``filterLeafPaths`` in ``ui/src/lib/fieldRules.js``, which
-    applies the same suppression when rendering the field-rules review UI.
+    The dashboard's field-rules review applies the same suppression.
 
     Parameters
     ----------
@@ -1096,6 +1095,11 @@ class ReplayContext:
         self._on_miss = on_miss
         self.bundle_path: Optional[pathlib.Path] = bundle_path
         self._index, self._curated, self._vp, self._stubs_by_ep = _build_index(bundle)
+        # The project's "Group IDs in paths automatically" setting, as it was when
+        # the bundle was pulled, so replay groups paths the way capture did.
+        # Bundles from before the setting existed have no project_settings: on.
+        settings = bundle.get("project_settings")
+        self._group_ids = not (isinstance(settings, dict) and settings.get("group_ids_in_paths") is False)
         self._original_send: Optional[Any] = None
         self._active = False
         self._select = select
@@ -1248,14 +1252,15 @@ class ReplayContext:
         # ── Parse the prepared URL ────────────────────────────────────────
         url = request.url or ""
         parsed = urlparse(url)
-        domain = parsed.netloc        # e.g. "api.example.com:8080"
+        # e.g. "api.example.com:8080"; userinfo dropped as in captures.
+        domain = (parsed.netloc or "").rpartition("@")[2]
         path = parsed.path or "/"
         query_string = parsed.query or ""
         method = (request.method or "GET").upper()
 
         # ── Template the path ─────────────────────────────────────────────
         curated = self._curated.get((method, domain), [])
-        path_tmpl = template_path(path, curated)
+        path_tmpl = template_path(path, curated, group_ids=self._group_ids)
 
         # ── Extract body and content-type ─────────────────────────────────
         raw_body = request.body

@@ -328,16 +328,24 @@ class TestApplyFieldRules:
         masked_body, _, _ = apply_field_rules("", {}, "", "application/json", compiled)
         assert masked_body == ""
 
-    def test_belt_and_suspenders_email_in_kept_string(self):
-        """Email in a 'keep' field should be caught by the embedded regex backstop."""
+    def test_keeping_a_parent_does_not_keep_its_children(self):
+        """Keep rules are scalar-exact: keeping "user" keeps no nested value."""
+        compiled = compile_field_rules([{"path": "body.user", "action": "keep"}])
+        body = json.dumps({"user": {"name": "Ana", "tags": ["x"], "n": 2}})
+        masked_body, _, _ = apply_field_rules(body, {}, "", "application/json", compiled)
+        assert json.loads(masked_body) == {"user": {"name": "<masked>", "tags": ["<masked>"], "n": 0}}
+
+    def test_kept_email_and_card_number_sent_verbatim(self):
+        """No built-in patterns: kept strings go out as they are."""
         compiled = compile_field_rules([{"path": "body.note", "action": "keep"}])
-        body = json.dumps({"note": "contact alice@example.com for details"})
+        body = json.dumps({"note": "ana@example.com 4111 1111 1111 1111", "other": "x"})
         masked_body, _, _ = apply_field_rules(
             body, {}, "", "application/json", compiled
         )
-        obj = json.loads(masked_body)
-        assert "alice@example.com" not in obj["note"]
-        assert "<masked>" in obj["note"]
+        assert json.loads(masked_body) == {
+            "note": "ana@example.com 4111 1111 1111 1111",
+            "other": "<masked>",
+        }
 
     def test_bool_masked_to_false(self):
         compiled = compile_field_rules([])
@@ -675,8 +683,8 @@ class TestPipelineRespFieldRules:
         assert resp_obj["amount"] == 0
         assert resp_obj["secret"] == "<masked>"
 
-    def test_resp_kept_string_regex_backstopped(self):
-        """A kept resp. string field still has the email regex backstop applied."""
+    def test_resp_kept_email_sent_verbatim(self):
+        """A kept resp. string holding an email address is sent as it is."""
         req_body = '{"action": "query"}'
         resp_body = json.dumps({"note": "contact alice@example.com please", "id": 1})
         _, pipeline = self._make_pipeline_with_resp_rules(
@@ -689,9 +697,7 @@ class TestPipelineRespFieldRules:
         result = call_process(pipeline, req_body=req_body, resp_body=resp_body)
         assert result is not None
         obj = json.loads(result["resp_body"])
-        # note is kept but email backstop fires
-        assert "alice@example.com" not in obj["note"]
-        assert "<masked>" in obj["note"]
+        assert obj["note"] == "contact alice@example.com please"
         # id is a non-string kept value - stays
         assert obj["id"] == 1
 
@@ -955,21 +961,67 @@ class TestProjectDefaults:
         assert result is not None
         assert json.loads(result["req_body"]) == {"token": "<masked>", "count": 0}
 
-    def test_absent_project_defaults_embedded_regex_still_applied(self):
-        """When project_defaults absent from sync, embedded email regex is the backstop."""
-        req_body = json.dumps({"note": "reach bob@example.org please", "count": 2})
+    def test_absent_project_defaults_kept_values_sent_verbatim(self):
+        """No project_defaults synced: a kept email or card number goes out as is,
+        and a field that is not kept is still masked."""
+        req_body = json.dumps({
+            "note": "reach ana@example.com please",
+            "card": "4111111111111111",
+            "count": 2,
+        })
         # keep 'note' - no project_defaults in sync response
         _, pipeline = self._make_cache_with_rules_and_defaults(
             req_body,
-            field_rules=[{"path": "body.note", "action": "keep"}],
+            field_rules=[
+                {"path": "body.note", "action": "keep"},
+                {"path": "body.card", "action": "keep"},
+            ],
             project_defaults=None,  # not included in sync response
         )
         result = call_process(pipeline, req_body=req_body)
         assert result is not None
-        obj = json.loads(result["req_body"])
-        # Embedded email regex must still catch the address
-        assert "bob@example.org" not in obj["note"]
-        assert "<masked>" in obj["note"]
+        assert json.loads(result["req_body"]) == {
+            "note": "reach ana@example.com please",
+            "card": "4111111111111111",
+            "count": 0,
+        }
+
+    def test_value_type_label_does_not_decide_masking(self, monkeypatch):
+        """A kept field labelled email is sent verbatim; an unkept one labelled
+        email is masked with the constant, not an email-shaped placeholder.
+        The label is reported either way.  The salt is set so that a label
+        used as a placeholder type would show up as a generated value."""
+        monkeypatch.setenv("STUBSMITH_MASK_SALT", "test-salt")
+        req_body = json.dumps({"kept": "ana@example.com", "unkept": "bo@example.com"})
+        _, pipeline = self._make_cache_with_rules_and_defaults(
+            req_body,
+            field_rules=[{"path": "body.kept", "action": "keep"}],
+            project_defaults=None,
+        )
+        result = call_process(pipeline, req_body=req_body)
+        assert result is not None
+        assert result["req_value_types"] == {"kept": "email", "unkept": "email"}
+        assert json.loads(result["req_body"]) == {
+            "kept": "ana@example.com",
+            "unkept": "<masked>",
+        }
+
+    def test_uncompilable_project_regex_masks_kept_strings(self):
+        """A synced regex mask that does not compile fails closed: kept strings
+        are masked, kept non-strings are not."""
+        req_body = json.dumps({"note": "hello", "count": 3})
+        cache, pipeline = self._make_cache_with_rules_and_defaults(
+            req_body,
+            field_rules=[
+                {"path": "body.note", "action": "keep"},
+                {"path": "body.count", "action": "keep"},
+            ],
+            project_defaults={"field_masks": [], "regex_masks": [{"pattern": "[[["}]},
+        )
+        assert cache.get_project_defaults() is not None
+        result = call_process(pipeline, req_body=req_body)
+        assert result is not None
+        assert json.loads(result["req_body"]) == {"note": "<masked>", "count": 3}
 
     def test_get_project_defaults_returns_none_before_sync(self):
         """Cache returns None when no sync has delivered project_defaults."""
@@ -989,10 +1041,9 @@ class TestProjectDefaults:
         assert isinstance(result, CompiledRules)
         assert "secret" in result.field_masks
 
-    def test_empty_project_defaults_falls_back_to_embedded_backstop(self):
-        """project_defaults {} (both lists empty) must NOT shadow the embedded backstop."""
+    def test_empty_project_defaults_kept_email_sent_verbatim(self):
+        """project_defaults with both lists empty: a kept email goes out as is."""
         req_body = json.dumps({"note": "contact carol@example.com please", "x": 1})
-        # keep 'note', but project_defaults is empty - embedded email regex must fire
         _, pipeline = self._make_cache_with_rules_and_defaults(
             req_body,
             field_rules=[{"path": "body.note", "action": "keep"}],
@@ -1000,11 +1051,10 @@ class TestProjectDefaults:
         )
         result = call_process(pipeline, req_body=req_body)
         assert result is not None
-        obj = json.loads(result["req_body"])
-        assert "carol@example.com" not in obj["note"], (
-            "Empty project_defaults must not bypass the embedded email backstop"
-        )
-        assert "<masked>" in obj["note"]
+        assert json.loads(result["req_body"]) == {
+            "note": "contact carol@example.com please",
+            "x": 0,
+        }
 
     def test_malformed_project_defaults_poll_still_lands_cursor_and_rules(self):
         """Malformed project_defaults (e.g. field_masks:[1]) must not abort the poll cycle."""
@@ -1022,12 +1072,111 @@ class TestProjectDefaults:
         cache._poll_once()
         # Cursor and per-fingerprint rules must still have been applied
         assert cache.get_cursor() == "99"
-        assert cache.get_project_defaults() is None  # malformed → treated as absent
-        # Pipeline still processes correctly using embedded backstop
+        # Malformed entries fail closed: the defaults are stored as unusable
+        defaults = cache.get_project_defaults()
+        assert defaults is not None and defaults.unusable is True
         result = call_process(pipeline, req_body=req_body)
         assert result is not None
         obj = json.loads(result["req_body"])
-        assert obj["amount"] == 50  # keep rule was applied
+        assert obj["amount"] == 50  # keep rule was applied; numbers are not regex-masked
+
+    @pytest.mark.parametrize("project_defaults", [[], "rules", 5])
+    def test_project_defaults_not_an_object_masks_kept_strings(self, project_defaults):
+        """project_defaults present but not an object fails closed."""
+        req_body = json.dumps({"note": "hello", "n": 1})
+        cache, pipeline = self._make_cache_with_rules_and_defaults(
+            req_body,
+            field_rules=[{"path": "body.note", "action": "keep"}, {"path": "body.n", "action": "keep"}],
+            project_defaults=project_defaults,
+        )
+        defaults = cache.get_project_defaults()
+        assert defaults is not None and defaults.unusable is True
+        result = call_process(pipeline, req_body=req_body)
+        assert result is not None
+        assert json.loads(result["req_body"]) == {"note": "<masked>", "n": 1}
+
+    def test_project_defaults_that_fail_to_compile_mask_kept_strings(self):
+        """An unexpected error while compiling project_defaults fails closed."""
+        req_body = json.dumps({"note": "hello"})
+        with mock.patch("stubsmith.privacy.rules_cache.compile_rules", side_effect=RuntimeError("boom")):
+            cache, pipeline = self._make_cache_with_rules_and_defaults(
+                req_body,
+                field_rules=[{"path": "body.note", "action": "keep"}],
+                project_defaults={"field_masks": ["x"]},
+            )
+        defaults = cache.get_project_defaults()
+        assert defaults is not None and defaults.unusable is True
+        result = call_process(pipeline, req_body=req_body)
+        assert result is not None
+        assert json.loads(result["req_body"]) == {"note": "<masked>"}
+
+    def test_malformed_entry_keeps_the_valid_field_masks(self):
+        """One malformed regex entry does not drop the project's field masks:
+        a field mask still masks a kept field, and kept strings are masked."""
+        req_body = json.dumps({"password": "hunter2", "note": "hello", "n": 1})
+        cache, pipeline = self._make_cache_with_rules_and_defaults(
+            req_body,
+            field_rules=[
+                {"path": "body.password", "action": "keep"},
+                {"path": "body.note", "action": "keep"},
+                {"path": "body.n", "action": "keep"},
+            ],
+            project_defaults={"field_masks": ["password"], "regex_masks": [{"pattern": 5}]},
+        )
+        defaults = cache.get_project_defaults()
+        assert defaults is not None and "password" in defaults.field_masks
+        result = call_process(pipeline, req_body=req_body)
+        assert result is not None
+        assert json.loads(result["req_body"]) == {"password": "<masked>", "note": "<masked>", "n": 1}
+
+
+class TestRegexCapAndUnusableOnEveryPath:
+    """The 64K cap and the unusable flag apply wherever a kept string meets a
+    customer regex: JSON body, form body, query and response body."""
+
+    _KEEP = compile_field_rules([
+        {"path": "body.a", "action": "keep"},
+        {"path": "query.a", "action": "keep"},
+        {"path": "resp.a", "action": "keep"},
+    ])
+
+    def _run(self, value: str, rules) -> list:
+        from stubsmith.privacy.field_rules import apply_resp_field_rules
+        enc = urllib.parse.quote(value)
+        json_body, _, query = apply_field_rules(
+            json.dumps({"a": value}), {}, f"a={enc}", "application/json", self._KEEP,
+            extra_rules=rules,
+        )
+        form_body, _, _ = apply_field_rules(
+            f"a={enc}", {}, "", "application/x-www-form-urlencoded", self._KEEP,
+            extra_rules=rules,
+        )
+        resp_body, _ = apply_resp_field_rules(
+            json.dumps({"a": value}), {}, "application/json", self._KEEP,
+            extra_rules=rules, resp_status=200,
+        )
+        return [
+            json.loads(json_body)["a"],
+            urllib.parse.parse_qs(form_body)["a"][0],
+            urllib.parse.parse_qs(query)["a"][0],
+            json.loads(resp_body)["a"],
+        ]
+
+    def test_string_over_cap_masked_on_every_path(self):
+        from stubsmith.privacy.masking import MAX_REGEX_SCAN_CHARS
+        rules = compile_rules([], [{"pattern": "zzz", "replace": "x"}])
+        assert self._run("a" * (MAX_REGEX_SCAN_CHARS + 1), rules) == ["<masked>"] * 4
+        at_cap = "a" * MAX_REGEX_SCAN_CHARS
+        assert self._run(at_cap, rules) == [at_cap] * 4
+
+    def test_unusable_rules_mask_every_path(self):
+        rules = compile_rules([], [{"pattern": "[[["}])
+        assert self._run("hello", rules) == ["<masked>"] * 4
+
+    def test_unusable_rules_mask_text_plain_in_mask_known(self):
+        from stubsmith.privacy.masking import mask_known
+        rules = compile_rules([], [{"pattern": "[[["}])
+        assert mask_known("hello", {}, "", "text/plain", rules)[0] == "<masked>"
 
 
 class TestPipelineTruncation:
@@ -1228,8 +1377,12 @@ class TestPipelineSyncNotFound:
             assert value not in posted
         fingerprints = {k: result.pop(k) for k in ("req_fingerprint", "resp_fingerprint")}
         assert all(isinstance(v, str) and v for v in fingerprints.values())
+        # No sync has succeeded, so the private raw path rides along; the
+        # client's sender removes it before sending.
+        assert result.pop("_raw_path") == "/v1/orders"
         assert result == {
             "sdk_version": result["sdk_version"],
+            "classifier_spec_version": 1,
             "sdk_masked": True,
             "sdk_rule_version": "0",
             "domain": "api.example.com",

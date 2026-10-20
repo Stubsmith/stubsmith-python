@@ -40,6 +40,7 @@ import urllib.parse
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
+from . import _classifiers
 from .binary import is_image, placeholder_for
 from .field_rules import CompiledFieldRules, apply_field_rules, apply_resp_field_rules
 from .fingerprint import extract_keypaths, extract_value_types, fingerprint, resp_fingerprint, unique_query_names
@@ -47,6 +48,10 @@ from .masking import mask_all
 from .rules_cache import RulesCache
 from .templating import template_path
 from .._version import __version__
+
+# Private payload field holding the raw path of a capture templated before the
+# first rules sync.  Never sent; see StubSmith._resolve_pending_path.
+RAW_PATH_FIELD = "_raw_path"
 
 logger = logging.getLogger("stubsmith")
 
@@ -150,9 +155,14 @@ class PrivacyPipeline:
     ) -> Dict[str, Any]:
         method_upper = method.upper()
 
+        # Read before templating: a sync that lands mid-capture then still
+        # leaves the marker set, which only costs a harmless recompute.
+        synced_at_capture = self._cache.wait_for_first_sync(0)
+
         # -- 1. Parse URL -----------------------------------------------
         parsed = urllib.parse.urlparse(raw_url)
-        domain = parsed.netloc or ""
+        # host[:port] only: userinfo (``user:password@``) never leaves the SDK.
+        domain = (parsed.netloc or "").rpartition("@")[2]
         path = parsed.path or "/"
         query_string = parsed.query or ""
 
@@ -166,7 +176,7 @@ class PrivacyPipeline:
 
         # -- 4. Path template -------------------------------------------
         curated = self._cache.get_curated_templates()
-        path_template = template_path(path, curated)
+        path_template = template_path(path, curated, group_ids=self._cache.get_group_ids_in_paths())
         endpoint_id = f"{domain}|{method_upper}|{path_template}"
 
         # -- 5. Value-discriminator paths (per endpoint, from sync) -----
@@ -178,10 +188,9 @@ class PrivacyPipeline:
         key_paths = extract_keypaths(req_body, req_ct)
         resp_key_paths = extract_keypaths(resp_body, resp_ct)
         # Observed value types: classified from raw values at the edge, before masking.
-        # A type label is not a value - sending the type name does not erode the
-        # paths-only invariant.  Only recognizable formats are classified (uuid, email,
-        # iso8601, …); character composition is never inspected, so the label carries no
-        # content-derived metadata beyond the format itself.
+        # classify_scalar reads the value's content to pick a label (uuid, email,
+        # iso8601, …), and the label is sent.  It is a label only: no masking decision
+        # reads it.  What is masked is decided by the customer's rules alone.
         req_value_types = extract_value_types(req_body, req_ct)
         resp_value_types = extract_value_types(resp_body, resp_ct)
         req_header_names = sorted(k.lower() for k in req_headers)
@@ -238,6 +247,8 @@ class PrivacyPipeline:
         masked_path = path_template + (f"?{mq}" if mq else "")
         payload: Dict[str, Any] = {
             "sdk_version": self._sdk_version,
+            # The classifier spec the value-type labels below come from.
+            "classifier_spec_version": _classifiers.SPEC_VERSION,
             "sdk_masked": True,
             "sdk_rule_version": cursor,
             "domain": domain,
@@ -258,6 +269,12 @@ class PrivacyPipeline:
             "resp_body": resp_mb_out,
             "novel": novel,
         }
+        if not synced_at_capture:
+            # The "Group IDs in paths automatically" setting is unknown until
+            # the first sync, so the template above assumed grouping ON.  Keep
+            # the raw path (no query) so the sender can redo it once the setting
+            # is known.  Private: stays in process memory, removed before send.
+            payload[RAW_PATH_FIELD] = path
         if req_body_encoding:
             payload["req_body_encoding"] = req_body_encoding
         if resp_body_encoding:
@@ -300,9 +317,8 @@ class PrivacyPipeline:
         elif isinstance(lookup, CompiledFieldRules):
             # Modern mode - per-fingerprint field rules.
             # Pass synced project defaults so the project's field_masks and
-            # regex masks are honoured on kept values; falls back to
-            # field_rules._EMBEDDED_REGEX_MASKS when no project_defaults have
-            # been synced yet (returns None).
+            # regex masks are honoured on kept values.  None when no
+            # project_defaults have been synced; kept values then go as is.
             novel = False
             project_defaults = self._cache.get_project_defaults()
             email_domain = self._cache.get_email_placeholder_domain()

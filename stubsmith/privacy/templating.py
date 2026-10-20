@@ -8,6 +8,11 @@ Heuristic rules (applied per path segment)
 - A segment of 16 or more hex characters → ``{id}``
 - Everything else is kept literal.
 
+The rules are generated from the shared classifier spec into
+``_classifiers.py``.  A project can turn them off ("Group IDs in paths
+automatically"); then only curated templates group paths and every other
+segment is kept as written.
+
 Curated templates
 -----------------
 Templates are fetched from the cloud (in a later work package) and passed into
@@ -22,7 +27,8 @@ Templates are fetched from the cloud (in a later work package) and passed into
    ties are broken lexicographically (ascending).  This ordering is
    precomputed by :func:`load_curated_templates` so the hot-path is a simple
    first-match scan.
-4. Fallback: the heuristic is applied when no curated template matches.
+4. Fallback: the heuristic is applied when no curated template matches and
+   the project lets the SDK group IDs automatically.
 """
 
 from __future__ import annotations
@@ -31,16 +37,13 @@ import re
 from dataclasses import dataclass
 from typing import List, Sequence
 
+from . import _classifiers
+
 
 # ---------------------------------------------------------------------------
-# Patterns for heuristic ID detection
+# Patterns
 # ---------------------------------------------------------------------------
 
-_UUID_RE = re.compile(
-    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-    re.IGNORECASE,
-)
-_HEX_RE = re.compile(r"^[0-9a-f]+$", re.IGNORECASE)
 # Matches any named wildcard segment such as {id}, {userId}, {p1}.
 # Note: {} (empty braces) is intentionally NOT matched - it is never a valid
 # wildcard and would be a malformed template segment.
@@ -81,11 +84,14 @@ def load_curated_templates(templates: Sequence[str]) -> List[CuratedTemplate]:
     return sorted(curated, key=lambda c: (-c.literal_count, c.template))
 
 
-def template_path(path: str, curated: Sequence[CuratedTemplate]) -> str:
+def template_path(
+    path: str, curated: Sequence[CuratedTemplate], group_ids: bool = True
+) -> str:
     """Return the templated form of *path*.
 
     The curated list is tried first (segment-count exact match, first match
-    wins).  Falls back to the heuristic when no curated template applies.
+    wins).  Falls back to the heuristic when no curated template applies and
+    *group_ids* is true; otherwise *path* is returned as written.
 
     Parameters
     ----------
@@ -93,6 +99,8 @@ def template_path(path: str, curated: Sequence[CuratedTemplate]) -> str:
         Concrete URL path, e.g. ``/users/123/orders``.
     curated:
         Pre-sorted curated template list from :func:`load_curated_templates`.
+    group_ids:
+        The project's "Group IDs in paths automatically" setting.
 
     Returns
     -------
@@ -106,7 +114,7 @@ def template_path(path: str, curated: Sequence[CuratedTemplate]) -> str:
             continue
         if all(ts == ps or _WILDCARD_SEG_RE.match(ts) for ts, ps in zip(t_segs, path_segs)):
             return ct.template
-    return _heuristic_template(path)
+    return _heuristic_template(path) if group_ids else path
 
 
 # ---------------------------------------------------------------------------
@@ -115,13 +123,7 @@ def template_path(path: str, curated: Sequence[CuratedTemplate]) -> str:
 
 def _is_id_segment(seg: str) -> bool:
     """Return True when *seg* looks like a dynamic ID component."""
-    if seg.isdigit():
-        return True
-    if _UUID_RE.match(seg):
-        return True
-    if len(seg) >= 16 and _HEX_RE.match(seg):
-        return True
-    return False
+    return _classifiers.is_id_segment(seg)
 
 
 def _heuristic_template(path: str) -> str:

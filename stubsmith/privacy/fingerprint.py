@@ -37,62 +37,28 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import urllib.parse
 from typing import Any, Dict, List, Optional
+
+from .masking import parse_form
+from . import _classifiers
 
 
 # ---------------------------------------------------------------------------
 # Observed value type classifier
 # ---------------------------------------------------------------------------
 
-# Closed vocabulary - mirrors SEMANTIC_TYPE_VOCAB in backend/src/privacy-helpers.js.
-# Both sides must agree on labels for the server to accept what the SDK sends.
-_VOCAB = frozenset({
-    "email", "uuid", "iso8601", "e164", "iban", "url",
-    "currency_code", "country_code", "decimal_amount",
-    "integer_id", "opaque_token", "free_text",
-})
-
-# Pre-compiled patterns.  Order of declaration mirrors the check order in
-# classify_scalar - most-specific patterns first so a UUID is never caught by
-# the generic string fallback.
+# The labels, their order and the string rules are generated from the shared
+# classifier spec (tools/classifiers/classifiers.json) into _classifiers.py.
 #
-# Principle: observed labels come from RECOGNIZABLE FORMATS ONLY.
-# Character composition (e.g. "has digits and letters, long, no spaces") is
-# NOT a format - checking it derives metadata from the character content of
-# the real value, which erodes the paths-only invariant.  opaque_token is
-# reachable only via the server's name-based inference (fields named "token",
-# "secret", "key", "hash"), where the source is the field name, not the value.
-_RE_UUID = re.compile(
-    r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
-    re.IGNORECASE,
-)
-_RE_EMAIL = re.compile(
-    r'^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$'
-)
-_RE_E164 = re.compile(r'^\+[0-9]{7,15}$')
-# IBAN: 2-letter country + 2-digit check + 11-30 alphanumerics.
-# Minimum real IBAN is 15 characters (Norway NO); {11,30} gives total minimum
-# of 2+2+11=15, preventing short strings like "EU20240001" from matching.
-_RE_IBAN = re.compile(r'^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$')
-_RE_CURRENCY = re.compile(r'^[A-Z]{3}$')
-_RE_COUNTRY = re.compile(r'^[A-Z]{2}$')
-
-# ISO 8601 subset: accepts YYYY-MM-DD and datetime strings with T-separator.
-# A lenient heuristic: anchored at start with a four-digit year and a dash.
-_RE_ISO8601 = re.compile(
-    r'^\d{4}-\d{2}-\d{2}'          # date prefix
-    r'([T ]\d{2}:\d{2})'           # optional time (T or space separator)
-    r'|^\d{4}-\d{2}-\d{2}$'        # date-only
-)
-
-# Bare integer string - checked BEFORE the decimal pattern so ordering is
-# unambiguous: "-?[0-9]+" has no dot, while decimal requires one.
-_RE_INTEGER_STRING = re.compile(r'^-?[0-9]+$')
-
-# Decimal number: optional leading sign, digits, required dot + more digits.
-_RE_DECIMAL = re.compile(r'^-?[0-9]+\.[0-9]+$')
+# These patterns read the content of the real value, and the resulting label is
+# sent to the server.  The dashboard shows labels and uses them to suggest a
+# type for a mask rule; no masking decision in the SDK reads them.  Labels come from
+# recognizable formats; there is no generic character-composition label (e.g.
+# "has digits and letters, long, no spaces").  opaque_token is reachable only
+# via the server's name-based inference (fields named "token", "secret", "key",
+# "hash"), where the source is the field name, not the value.
+_VOCAB = frozenset(_classifiers.VOCAB)
 
 
 def classify_scalar(value: Any) -> Optional[str]:
@@ -115,43 +81,12 @@ def classify_scalar(value: Any) -> Optional[str]:
         if isinstance(value, bool) or value is None:
             return None
         if isinstance(value, int):
-            return "integer_id"
+            return _classifiers.JSON_INTEGER
         if isinstance(value, float):
-            return "decimal_amount"
+            return _classifiers.JSON_FLOAT
         if not isinstance(value, str):
             return None   # dict / list - not a scalar
-
-        s = value
-
-        # ── Specific patterns - most specific first ───────────────────────
-        if _RE_UUID.match(s):
-            return "uuid"
-        if _RE_EMAIL.match(s):
-            return "email"
-        if _RE_ISO8601.match(s):
-            return "iso8601"
-        if _RE_E164.match(s):
-            return "e164"
-        if _RE_IBAN.match(s):
-            return "iban"
-        if s.startswith("http://") or s.startswith("https://"):
-            return "url"
-        if _RE_CURRENCY.match(s):
-            return "currency_code"
-        if _RE_COUNTRY.match(s):
-            return "country_code"
-        # Integer string before decimal so "-?[0-9]+" (no dot) is caught first.
-        if _RE_INTEGER_STRING.match(s):
-            return "integer_id"
-        if _RE_DECIMAL.match(s):
-            return "decimal_amount"
-
-        # ── Fallback ─────────────────────────────────────────────────────
-        # opaque_token is NOT emitted here. Observed labels come from
-        # recognizable formats only; character composition is not a format
-        # and reading it would derive content-derived metadata from the value.
-        # opaque_token remains reachable via the server's name-based inference.
-        return "free_text"
+        return _classifiers.classify_string(value)
     except Exception:
         return None
 
@@ -181,8 +116,10 @@ def extract_value_types(body: str, content_type: str = "") -> Dict[str, str]:
     try:
         if ct == "application/x-www-form-urlencoded":
             try:
-                parsed = urllib.parse.parse_qs(body, keep_blank_values=True)
+                parsed = parse_form(body)
             except Exception:
+                return {}
+            if parsed is None:
                 return {}
             for key, vals in parsed.items():
                 if not vals:
@@ -227,8 +164,8 @@ def extract_keypaths(body: str, content_type: str = "") -> List[str]:
     ct = _normalise_ct(content_type)
     if ct == "application/x-www-form-urlencoded":
         try:
-            parsed = urllib.parse.parse_qs(body, keep_blank_values=True)
-            return list(parsed.keys())
+            parsed = parse_form(body)
+            return list(parsed.keys()) if parsed is not None else []
         except Exception:
             return []
     try:
@@ -409,8 +346,10 @@ def _extract_value_pairs(
     try:
         if ct == "application/x-www-form-urlencoded":
             try:
-                parsed_form = urllib.parse.parse_qs(body, keep_blank_values=True)
+                parsed_form = parse_form(body)
             except Exception:
+                return []
+            if parsed_form is None:
                 return []
             for path in value_paths:
                 # Form-encoded bodies are flat; use path as a literal key name.

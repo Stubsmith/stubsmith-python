@@ -8,9 +8,8 @@ RFC 4122-shaped UUID, an IBAN with a correct mod-97 checksum, etc.  Without a
 salt the module falls back to the constant placeholders (``"<masked>"``, ``0``,
 ``False``) that have always been emitted, so existing users see no change.
 
-Hint-not-mandate contract (mirrors ``SEMANTIC_TYPE_VOCAB`` in
-``backend/src/privacy-helpers.js``)
----------------------------------------------------------------
+Hint-not-mandate contract (``SEMANTIC_TYPE_VOCAB``, from the classifier spec)
+------------------------------------------------------------------------------
 The server infers a ``type`` from the field's *leaf name only* and never from
 the value - it never sees values.  Name-based inference can be wrong: a field
 named ``charge_id`` may hold a string Stripe ID or an integer.  So ``type`` is
@@ -55,26 +54,15 @@ import os
 import uuid as _uuid_module
 from typing import Any, Optional
 
+from . import _classifiers
+
 logger = logging.getLogger("stubsmith")
 
 # ---------------------------------------------------------------------------
-# Closed vocabulary (mirrors backend/src/privacy-helpers.js SEMANTIC_TYPE_VOCAB)
+# Closed vocabulary, generated from the shared classifier spec
 # ---------------------------------------------------------------------------
 
-SEMANTIC_TYPE_VOCAB: frozenset = frozenset({
-    "email",
-    "uuid",
-    "iso8601",
-    "e164",
-    "iban",
-    "url",
-    "currency_code",
-    "country_code",
-    "decimal_amount",
-    "integer_id",
-    "opaque_token",
-    "free_text",
-})
+SEMANTIC_TYPE_VOCAB: frozenset = frozenset(_classifiers.VOCAB)
 
 # Types whose generated output is always a string.
 _STRING_TYPES: frozenset = frozenset({
@@ -114,9 +102,7 @@ def generate(
         value's type is returned - unchanged behaviour for all existing users.
     email_domain:
         Domain to use for generated email addresses, e.g. ``"acme.stub.invalid"``.
-        The Go ingest service re-masks any email whose domain does not match the
-        project placeholder domain, so this must agree with what the backend
-        expects.  Defaults to :data:`DEFAULT_EMAIL_DOMAIN` (``"stub.invalid"``).
+        Defaults to :data:`DEFAULT_EMAIL_DOMAIN` (``"stub.invalid"``).
 
     Returns
     -------
@@ -267,8 +253,8 @@ def _gen_email(b: bytes, domain: str) -> str:
     """Generate a deterministic email address at *domain*.
 
     Local part is eight lowercase hex characters; format satisfies the
-    ``[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}`` shape expected
-    by the ingest backstop regex.
+    ``[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}`` shape of a common
+    email regex.
     """
     local = b[:4].hex()
     return f"{local}@{domain}"

@@ -167,8 +167,7 @@ fingerprints across 8 endpoints.
 > **Then run Step 2 again.**  This is not optional, for two independent reasons.
 >
 > Ingest stores **no capture row at all** for a pending fingerprint - only
-> approved fingerprints may produce captures (`ingest-go/main.go`, the pending
-> branch).  A fingerprint approved after its traffic ran therefore has nothing
+> approved fingerprints may produce captures.  A fingerprint approved after its traffic ran therefore has nothing
 > recorded, and `stubsmith pull` reports it as `degraded`: the stub exists, has
 > no variants, and replay raises `StubNotFound` for it.
 >
@@ -408,22 +407,22 @@ Placeholder values:
 - booleans → `False`
 - null     → left as null
 
-Kept strings still pass through a **regex backstop**.  The SDK's embedded
-backstop masks email addresses and 16-digit card numbers.  A project can sync
-additional regex rules via `anonymizer/rules.json`.
+A kept value is sent as it is.  The SDK does not look at a value to decide
+whether to mask it; only the keep rules and the project's own masks decide.
+Kept strings do pass through any regex masks in the project's global rules.
 
 **What this means for test assertions:**
 
-- Do NOT `assert result["email"] == "user@example.com"`.  Email values are
-  always masked by the regex backstop.
+- Do NOT `assert result["email"] == "user@example.com"`.  The email field has
+  no keep rule in this example, so it is masked.
 - DO `assert "email" in result` (presence check only).
 - DO `assert result["token"] == "<masked>"` to verify masking ran - but only
   when you need to assert the masking, not as a general-purpose equality check.
 
 **Request headers** follow an allowlist: only `content-type`, `content-length`,
-`accept`, `accept-encoding`, `accept-language`, `user-agent`, `host`,
-`cache-control`, and `transfer-encoding` pass through; every other request
-header becomes `"<masked>"`.
+`accept`, `accept-encoding`, `host` and `transfer-encoding` pass through;
+every other request header becomes `"<masked>"` unless a `header.` keep rule
+keeps it. That includes `user-agent`, `cache-control` and `accept-language`.
 
 ## Path templating and dynamic routes
 

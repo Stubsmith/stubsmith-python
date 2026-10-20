@@ -15,9 +15,8 @@ with count: 2 each; _select_variant picks 200 (lowest status code when counts
 are tied).  To exercise the 404 path, an inline bundle containing only the 404
 variant is passed, following the same pattern as the 401 test in test_auth.py.
 
-The email field is masked in both the request capture and the response body by
-the SDK's regex backstop (email-shaped strings are always masked regardless of
-keep rules).  Tests assert presence, not value, for masked fields.
+The email field has no keep rule, so it is masked in both the request capture
+and the response body.  Tests assert presence, not value, for masked fields.
 """
 import pytest
 
@@ -86,7 +85,7 @@ def test_get_user_returns_recorded_shape():
     assert "name" in user
     assert "created_at" in user
     assert "last_login" in user
-    # email is always masked by the regex backstop - assert presence, not value.
+    # email has no keep rule, so it is masked - assert presence, not value.
     assert "email" in user
     assert user["email"] == "<masked>"
 
@@ -134,8 +133,7 @@ def test_get_user_raises_user_not_found():
 def test_create_user_returns_recorded_shape():
     """Client parses the create-user response correctly.
 
-    id is kept (integer); name and email are masked (no keep rule and email
-    is also caught by the regex backstop).
+    id is kept (integer); name and email are masked (no keep rule).
     """
     with stubsmith.replay():
         result = ShopClient(BASE_URL, "test-key").create_user(
@@ -147,6 +145,6 @@ def test_create_user_returns_recorded_shape():
 
     assert "id" in result
     assert result["created"] is True
-    # email masked by the regex backstop - presence check only.
+    # email has no keep rule, so it is masked - presence check only.
     assert "email" in result
     assert result["email"] == "<masked>"

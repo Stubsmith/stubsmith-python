@@ -13,8 +13,9 @@ Masking is applied **in this SDK**, in your own process, before any capture
 leaves it: the ingest service receives masked bodies plus structural names
 (field paths, header names, query-parameter names), never original values.  A
 field with no explicit `keep` rule is masked, so a field the rules do not
-mention cannot leak.  The server runs pattern backstops on what arrives, but it
-is a second line of defence, not the masking layer.
+mention cannot leak.  The server does not inspect values; the only content rules
+it enforces are replacing image bodies with a placeholder, and storing a path
+under its path pattern.
 
 ---
 
@@ -341,7 +342,7 @@ with `Authorization: Bearer <your project key>` and
   "resp_header_names": ["content-type", "date", "server"],
   "query_names": ["limit", "include"],
   "headers": {
-    "User-Agent": "python-requests/2.34.2",
+    "User-Agent": "<masked>",
     "Accept-Encoding": "gzip, deflate, zstd",
     "Accept": "*/*",
     "Connection": "<masked>",
@@ -372,9 +373,17 @@ Reading it:
 - **No original value appears in this capture**, including in the URL: the path
   is templated (`1042` becomes `{id}`) and query *values* are masked while their
   names survive. `paid: true` masked to `false` because a boolean's masked form
-  is `false`, not because the value was read. The one literal value here is
-  `"Accept": "*/*"`, an allowlisted transport header a stub needs in order to be
-  replayed.
+  is `false`, not because the value was read. The literal values here are
+  `"Accept": "*/*"` and `"Accept-Encoding"`, allowlisted transport headers a
+  stub needs in order to be replayed.
+- **Six header values are always sent as they are**, in requests and
+  responses: `content-type`, `content-length`, `accept`, `accept-encoding`,
+  `host` and `transfer-encoding`. Every other header value, `user-agent`,
+  `cache-control` and `accept-language` included, is `<masked>` unless a keep
+  rule keeps it. Header *names*, like JSON keys, form field names and query
+  parameter names, are structure and are sent as they are. In a form body
+  that is all `key=value` pairs, whatever stands before each `=` is a name,
+  so free text such as `Hi Bob, ref=123` sends `Hi Bob, ref` as a name.
 - **`key_paths` and `resp_key_paths` are names only.** They are what you review
   in the Request Types editor, and what a `field_rules` entry addresses.
 - **`resp_fingerprint` is the status code followed by a 16-character digest.**
@@ -390,9 +399,10 @@ Reading it:
   heuristic (all digits, UUID-shaped, or 16 or more hex characters) nor one of
   your curated request-type templates collapses, which is sent as written, and
   the allowlisted transport headers above.
-- **`resp_value_types` reports recognizable formats, not content.** `"iban"`
-  means the string parsed as an IBAN. Character composition is never inspected,
-  so no label is derived from the value beyond its format.
+- **`resp_value_types` is a label, not a masking decision.** The SDK reads
+  each value to recognise its format, so `"iban"` means the string parsed as an
+  IBAN. Only the label is sent. Nothing is masked or kept because of a label:
+  that is decided by your rules alone.
 - **`sdk_masked: true`** is what the ingest service requires; a payload without
   it is rejected with `400 sdk_required`, so an unmasked body cannot be posted
   through this endpoint at all.
@@ -671,7 +681,9 @@ needs no per-fixture registration.
 ## Masking and placeholders
 
 Values are masked in the SDK, before a capture is uploaded: the server never
-receives the originals.  A field with no `keep` rule is replaced.
+receives the originals.  A field with no `keep` rule is replaced.  A kept
+value is sent as it is: the SDK has no built-in patterns of its own, so only
+your keep rules, field masks and regex masks decide what is masked.
 
 By default the replacement is a constant (`"<masked>"`, `0`, `False`) matching
 the original's type.
@@ -701,6 +713,85 @@ small enough that a keyed hash could be reversed with a lookup table.  Use
 ---
 
 ## Changelog
+
+### 0.8.0
+
+**The SDK no longer scrubs kept values for emails and card numbers.** Earlier
+releases replaced email addresses and 16-digit numbers inside kept strings with
+`<masked>`, but only until the project had any global rule, so some projects
+had this and others did not. It is removed. What decides masking is now only
+your own rules: a field without a `keep` rule is masked as before, and a kept
+field is sent as it is, even when it holds an email address or a card number.
+
+**What to check:** look at the fields you keep. If a kept field can hold an
+email address, a card number or other personal data, remove the `keep` rule,
+or add a field mask or regex mask for it in the project's global rules.
+
+**Value-type labels never mask.** The SDK still recognises formats such as
+`email` or `iban` and reports them as labels in `req_value_types` and
+`resp_value_types`. A label is only a label: it never masks or keeps a value.
+
+**A customer rule that cannot be used masks instead of being skipped.** A
+regex mask whose pattern does not compile used to be dropped without a word,
+so the values it was meant to mask went out, and a malformed entry in the
+project's global rules (for example a pattern that is not a string) made the
+SDK ignore all of them, field masks included. Now the valid rules still apply,
+every kept string is masked while such an entry is in the rules, and one
+`WARNING` on the `stubsmith` logger names it. Fix or remove the entry to get
+kept values back.
+
+**Fixed: a free-text body labelled as a form is masked as a whole.** A
+request or response body with `Content-Type: application/x-www-form-urlencoded`
+that is not `key=value` pairs, such as free text, was sent with the whole text
+as a field name. A form body in which any `&`-separated part has no `=` is now
+sent as `<masked>`, and no field names or value types are taken from it.
+
+**Fixed: URL credentials are no longer sent.** For a URL such as
+`http://user:password@host/`, the capture's `domain` held `user:password@host`.
+It now holds only the host and port. `replay()` matches such a URL on its
+host and port as well. A bundle pulled from captures recorded with such a
+URL by an earlier release holds the credentials in its domain and no longer
+matches; record and pull it again.
+
+**`User-Agent`, `Cache-Control` and `Accept-Language` values are masked by
+default.** All three can carry data about your users or your customers, so
+they are no longer on the header allowlist. In requests and responses their
+values are sent as `<masked>` unless you keep them: a `header.user-agent`,
+`header.cache-control` or `header.accept-language` keep rule for the request,
+`resp_header.user-agent`, `resp_header.cache-control` or
+`resp_header.accept-language` for the response. The names are still sent.
+Replayed responses carry `Cache-Control: <masked>` unless you keep
+`resp_header.cache-control`. The six values still sent as they are:
+`content-type`, `content-length`, `accept`, `accept-encoding`, `host` and
+`transfer-encoding`.
+
+**Regex masks are not run on very long strings.** While a regex mask is
+active, a kept string longer than 65,536 characters is masked without running
+any pattern, so a pattern that backtracks badly cannot stall your requests.
+
+**Turning off automatic ID grouping in paths.** The SDK turns path segments
+that look like IDs (all digits, a UUID, or 16 or more hex characters) into
+`{id}`. A project can now turn that off with the dashboard setting "Group IDs
+in paths automatically". When it is off, only the project's path patterns group
+paths, and every other segment is sent as written. The SDK reads the setting
+from `project_settings` in the rules sync, and replay reads it from the bundle,
+so replay groups paths the way capture did. Until a sync says otherwise the
+setting is on, which is the behaviour of earlier releases.
+
+**Captures made before the first sync wait for it.** A capture processed before
+the first rules sync used to be sent with IDs grouped even on a project that
+turned grouping off, so the same endpoint could arrive as `/orders/{id}` and
+then as `/orders/123`. The sender now holds such a capture, for at most 5
+seconds from client start, until the sync arrives, and then applies the
+project's setting. If no sync arrives in that time it is sent as before, and a
+`flush()`, including the one at exit, sends held captures at once. The
+application's own requests are never delayed.
+
+**Value-type labels and ID rules come from a shared spec.** The labels the SDK
+reports for observed values and the rules for ID segments are generated from
+`tools/classifiers/classifiers.json`, the same spec the Stubsmith server uses.
+Captures now carry `classifier_spec_version`, so the server can tell which
+version of the labels a capture used. The labels and rules themselves are unchanged.
 
 ### 0.7.1
 

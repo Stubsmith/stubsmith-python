@@ -51,6 +51,10 @@ _SDK_USER_AGENT = f"stubsmith-sdk/{__version__}"
 
 logger = logging.getLogger("stubsmith")
 
+# Stored when the synced project_defaults cannot be used at all: no field or
+# regex masks, and every kept string is masked.
+_UNUSABLE_PROJECT_RULES = CompiledRules(field_masks=frozenset(), regex_masks=(), unusable=True)
+
 _SYNC_TIMEOUT = 10   # seconds for each HTTP request in the poll loop
 
 
@@ -96,6 +100,10 @@ class RulesCache:
         # Defaults to "stub.invalid".
         self._email_placeholder_domain: str = "stub.invalid"
         self._curated_templates: List[CuratedTemplate] = []
+        # The project's "Group IDs in paths automatically" setting, from
+        # project_settings in the sync response.  On until a sync says otherwise,
+        # which is the behaviour from before the setting existed.
+        self._group_ids_in_paths: bool = True
         # Per-endpoint value-discriminator paths (keyed by endpoint_id).
         # Full replacement on every sync response that includes the key.
         self._value_config: Dict[str, List[str]] = {}
@@ -158,8 +166,8 @@ class RulesCache:
     def get_project_defaults(self) -> Optional[CompiledRules]:
         """Return the project-level default masking rules from the last sync.
 
-        Returns ``None`` when no sync has delivered ``project_defaults`` yet;
-        callers should fall back to their own embedded defaults in that case.
+        Returns ``None`` when no sync has delivered ``project_defaults`` with
+        at least one rule.
         """
         with self._lock:
             return self._project_defaults
@@ -173,6 +181,15 @@ class RulesCache:
         """
         with self._lock:
             return self._email_placeholder_domain
+
+    def get_group_ids_in_paths(self) -> bool:
+        """Return whether path segments that look like IDs become ``{id}``.
+
+        True until a sync response sets ``project_settings.group_ids_in_paths``
+        to false.  When false, only curated templates group paths.
+        """
+        with self._lock:
+            return self._group_ids_in_paths
 
     def get_value_paths(self, endpoint_id: str) -> List[str]:
         """Return the configured value-discriminator paths for *endpoint_id*.
@@ -364,36 +381,55 @@ class RulesCache:
         # Present when the backend populates it (plan v2 delta 6); absent fields
         # are treated as empty lists so compile_rules gets well-typed inputs.
         # Two safety rules:
-        #   (a) Empty result (no field masks AND no regex masks) → store None so
-        #       apply_field_rules falls back to the embedded regex backstop rather
-        #       than receiving a non-None but vacuous CompiledRules that silently
-        #       bypasses it.
-        #   (b) Wrap in try/except so malformed server data (e.g. a non-string in
-        #       field_masks) cannot abort the rest of _apply_sync_response and
-        #       block cursor/rules/template updates for that poll cycle.
+        #   (a) Empty result (no field masks, no regex masks, nothing unusable)
+        #       → store None, which apply_field_rules treats the same way.  A
+        #       set whose only pattern failed to compile is NOT empty: it is
+        #       stored so that every kept string is masked.
+        #   (b) Malformed server data cannot abort the rest of
+        #       _apply_sync_response and block cursor/rules/template updates
+        #       for that poll cycle.  It fails closed instead: project_defaults
+        #       that are present but not an object, or that fail to compile,
+        #       are stored as an unusable rule set, so every kept string is
+        #       masked.  Absent or null project_defaults stay None.
         project_defaults: Optional[CompiledRules] = None
         new_email_domain: Optional[str] = None
         pd_raw = body.get("project_defaults")
+        if pd_raw is not None and not isinstance(pd_raw, dict):
+            logger.warning(
+                "stubsmith: synced project_defaults is not an object; every kept "
+                "string will be masked until a sync delivers valid rules"
+            )
+            project_defaults = _UNUSABLE_PROJECT_RULES
         if isinstance(pd_raw, dict):
             try:
                 compiled_pd = compile_rules(
                     pd_raw.get("field_masks") or [],
                     pd_raw.get("regex_masks") or [],
                 )
-                # Only store when there is at least one active rule; an empty
-                # CompiledRules would shadow the embedded backstop with no benefit.
-                if compiled_pd.field_masks or compiled_pd.regex_masks:
+                # Only store when there is at least one rule, counting one that
+                # failed to compile (see (a) above).
+                if compiled_pd.field_masks or compiled_pd.regex_masks or compiled_pd.unusable:
                     project_defaults = compiled_pd
             except Exception as exc:
-                logger.debug(
-                    "stubsmith rules-cache: ignoring malformed project_defaults: %s", exc
+                logger.warning(
+                    "stubsmith: synced project_defaults cannot be used (%s); every "
+                    "kept string will be masked until a sync delivers valid rules",
+                    exc,
                 )
+                project_defaults = _UNUSABLE_PROJECT_RULES
             # Extract email placeholder domain for format-preserving generation.
             # A non-empty string overrides the default; absent or empty keeps the
             # current value so a server that does not yet send the field is safe.
             raw_domain = pd_raw.get("email_placeholder_domain")
             if isinstance(raw_domain, str) and raw_domain:
                 new_email_domain = raw_domain
+
+        # project_settings: settings the SDK acts on.  A missing key or a
+        # non-boolean value leaves the current setting as it is.
+        new_group_ids: Optional[bool] = None
+        ps_raw = body.get("project_settings")
+        if isinstance(ps_raw, dict) and isinstance(ps_raw.get("group_ids_in_paths"), bool):
+            new_group_ids = ps_raw["group_ids_in_paths"]
 
         # request_type_value_config: optional sparse map of endpoint_id → list of
         # body key-paths whose values should be folded into the request fingerprint.
@@ -424,6 +460,8 @@ class RulesCache:
                 self._project_defaults = project_defaults
             if new_email_domain is not None:
                 self._email_placeholder_domain = new_email_domain
+            if new_group_ids is not None:
+                self._group_ids_in_paths = new_group_ids
             # Full replacement when the key was present (absent key → no change).
             if new_value_config is not None:
                 self._value_config = new_value_config

@@ -1902,3 +1902,51 @@ class TestSendCompression:
             )
         finally:
             client.close()
+
+
+# ---------------------------------------------------------------------------
+# URL userinfo never reaches the payload, and a free-text form body is masked
+# ---------------------------------------------------------------------------
+
+FORM_CT = "application/x-www-form-urlencoded"
+FREE_TEXT = "Dear REQTEXT, your PIN is 1234"
+RESP_TEXT = "Dear RESPTEXT, your code is 5678"
+
+
+def _assert_no_userinfo_or_text(p: Dict[str, Any], host: str) -> None:
+    assert p["domain"] == host
+    raw = json.dumps(p)
+    for leaked in ("usr", "SECRET_PW", "REQTEXT", "RESPTEXT"):
+        assert leaked not in raw
+    assert p["req_body"] == "<masked>" and p["resp_body"] == "<masked>"
+    assert p["key_paths"] == [] and p["resp_key_paths"] == []
+
+
+@responses_lib.activate
+def test_requests_userinfo_and_free_text_form_are_not_sent():
+    import re as _re
+    responses_lib.add(responses_lib.POST, _re.compile(r"http://.*api\.example\.com:8080/notes"), body=RESP_TEXT,
+                      content_type=FORM_CT)
+    client, sink = make_client()
+    client.instrument_requests()
+    try:
+        requests.post("http://usr:SECRET_PW@api.example.com:8080/notes", data=FREE_TEXT,
+                      headers={"Content-Type": FORM_CT})
+        _assert_no_userinfo_or_text(sink.wait_for(1)[0], "api.example.com:8080")
+    finally:
+        client.uninstrument()
+
+
+def test_httpx_userinfo_and_free_text_form_are_not_sent():
+    with respx.mock:
+        respx.post("http://api.example.com:8080/notes").mock(
+            return_value=httpx.Response(200, content=RESP_TEXT, headers={"Content-Type": FORM_CT}))
+        client, sink = make_client()
+        client.instrument_httpx()
+        try:
+            with httpx.Client() as http:
+                http.post("http://usr:SECRET_PW@api.example.com:8080/notes", content=FREE_TEXT,
+                          headers={"Content-Type": FORM_CT})
+            _assert_no_userinfo_or_text(sink.wait_for(1)[0], "api.example.com:8080")
+        finally:
+            client.uninstrument()

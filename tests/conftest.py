@@ -64,3 +64,14 @@ def _no_network(monkeypatch):
     monkeypatch.setenv("STUBSMITH_API_URL", _UNREACHABLE)
     monkeypatch.setenv("STUBSMITH_BACKEND_URL", _UNREACHABLE)
     monkeypatch.setenv("STUBSMITH_URL", f"{_UNREACHABLE}/v1/captures")
+
+
+@pytest.fixture(autouse=True)
+def _no_first_sync_hold(monkeypatch):
+    """The sender does not hold captures for a first rules sync here.
+
+    No test client ever syncs (the backend URL is unreachable), so the hold
+    would delay every capture by its full bound. Tests of the hold itself set
+    ``stubsmith.client.FIRST_SYNC_HOLD`` back.
+    """
+    monkeypatch.setattr("stubsmith.client.FIRST_SYNC_HOLD", 0.0)

@@ -1,4 +1,4 @@
 # Single source of truth for the package version.
 # Imported by both stubsmith/__init__.py and stubsmith/client.py (which
 # cannot import from the package root without a circular import).
-__version__ = "0.7.1"
+__version__ = "0.8.0"

@@ -114,7 +114,7 @@
     },
     {
       "name": "form-encoded-keep-mask",
-      "description": "Form-encoded body: flat keys; kept values pass (regex-backstopped), masked values → \"<masked>\" per occurrence.",
+      "description": "Form-encoded body: flat keys; kept values pass as is, masked values → \"<masked>\" per occurrence.",
       "field_rules": [
         {"path": "body.username", "action": "keep"}
       ],
@@ -160,7 +160,7 @@
     },
     {
       "name": "header-allowlist",
-      "description": "Headers: HEADER_ALLOWLIST (9 names) kept without an explicit keep rule; all others → \"<masked>\". Verifies all 9 allowlist names.",
+      "description": "Headers: HEADER_ALLOWLIST (6 names) kept without an explicit keep rule; all others → \"<masked>\", user-agent, cache-control and accept-language included. Verifies all 6 allowlist names.",
       "field_rules": [],
       "input": {
         "body": "",
@@ -190,10 +190,10 @@
           "content-length": "42",
           "accept": "application/json",
           "accept-encoding": "gzip",
-          "accept-language": "en-US",
-          "user-agent": "stubsmith/1.0",
+          "accept-language": "<masked>",
+          "user-agent": "<masked>",
           "host": "api.example.com",
-          "cache-control": "no-cache",
+          "cache-control": "<masked>",
           "transfer-encoding": "chunked",
           "authorization": "<masked>",
           "x-custom": "<masked>"
@@ -201,6 +201,175 @@
         "masked_query": {},
         "masked_resp_body": "",
         "masked_resp_headers": {}
+      }
+    },
+    {
+      "name": "header-user-agent-cache-control-masked-by-default",
+      "description": "user-agent and cache-control are not on the allowlist: without a keep rule their values are \"<masked>\" in requests and responses. Names stay as they are.",
+      "field_rules": [],
+      "input": {
+        "body": "",
+        "content_type": "",
+        "headers": {
+          "User-Agent": "acme-app/2.1 (customer 4471)",
+          "Cache-Control": "no-cache",
+          "Accept": "application/json"
+        },
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {
+          "Cache-Control": "private, max-age=60",
+          "User-Agent": "upstream/1.0",
+          "Content-Type": "application/json"
+        }
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {
+          "User-Agent": "<masked>",
+          "Cache-Control": "<masked>",
+          "Accept": "application/json"
+        },
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {
+          "Cache-Control": "<masked>",
+          "User-Agent": "<masked>",
+          "Content-Type": "application/json"
+        }
+      }
+    },
+    {
+      "name": "header-user-agent-cache-control-kept",
+      "description": "A header. keep rule sends a request user-agent or cache-control value as is; a resp_header. keep rule does the same for the response. Each namespace keeps only its own side.",
+      "field_rules": [
+        {"path": "header.user-agent", "action": "keep"},
+        {"path": "header.cache-control", "action": "keep"},
+        {"path": "resp_header.cache-control", "action": "keep"}
+      ],
+      "input": {
+        "body": "",
+        "content_type": "",
+        "headers": {
+          "User-Agent": "acme-app/2.1 (customer 4471)",
+          "Cache-Control": "no-cache"
+        },
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {
+          "Cache-Control": "private, max-age=60",
+          "User-Agent": "upstream/1.0"
+        }
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {
+          "User-Agent": "acme-app/2.1 (customer 4471)",
+          "Cache-Control": "no-cache"
+        },
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {
+          "Cache-Control": "private, max-age=60",
+          "User-Agent": "<masked>"
+        }
+      }
+    },
+    {
+      "name": "header-accept-language-masked-by-default",
+      "description": "accept-language is not on the allowlist: without a keep rule its value is \"<masked>\" in requests and responses. The name stays as it is.",
+      "field_rules": [],
+      "input": {
+        "body": "",
+        "content_type": "",
+        "headers": {
+          "Accept-Language": "nl-BE,nl;q=0.9,en;q=0.5",
+          "Accept": "application/json"
+        },
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {
+          "Accept-Language": "fr-CA",
+          "Content-Type": "application/json"
+        }
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {
+          "Accept-Language": "<masked>",
+          "Accept": "application/json"
+        },
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {
+          "Accept-Language": "<masked>",
+          "Content-Type": "application/json"
+        }
+      }
+    },
+    {
+      "name": "header-accept-language-kept",
+      "description": "A header.accept-language keep rule sends the request value as is; a resp_header.accept-language keep rule does the same for the response. Each namespace keeps only its own side.",
+      "field_rules": [
+        {"path": "header.accept-language", "action": "keep"}
+      ],
+      "input": {
+        "body": "",
+        "content_type": "",
+        "headers": {
+          "Accept-Language": "nl-BE,nl;q=0.9,en;q=0.5"
+        },
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {
+          "Accept-Language": "fr-CA"
+        }
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {
+          "Accept-Language": "nl-BE,nl;q=0.9,en;q=0.5"
+        },
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {
+          "Accept-Language": "<masked>"
+        }
+      }
+    },
+    {
+      "name": "header-accept-language-resp-kept",
+      "description": "A resp_header.accept-language keep rule sends the response value as is and leaves the request value masked.",
+      "field_rules": [
+        {"path": "resp_header.accept-language", "action": "keep"}
+      ],
+      "input": {
+        "body": "",
+        "content_type": "",
+        "headers": {
+          "Accept-Language": "nl-BE,nl;q=0.9,en;q=0.5"
+        },
+        "query": "",
+        "resp_body": "",
+        "resp_content_type": "",
+        "resp_headers": {
+          "Accept-Language": "fr-CA"
+        }
+      },
+      "expected": {
+        "masked_body": "",
+        "masked_headers": {
+          "Accept-Language": "<masked>"
+        },
+        "masked_query": {},
+        "masked_resp_body": "",
+        "masked_resp_headers": {
+          "Accept-Language": "fr-CA"
+        }
       }
     },
     {
@@ -236,7 +405,7 @@
     },
     {
       "name": "query-keep-mask",
-      "description": "query. namespace: kept param passes through (regex-backstopped); other params → \"<masked>\".",
+      "description": "query. namespace: kept param passes through as is; other params → \"<masked>\".",
       "field_rules": [
         {"path": "query.page", "action": "keep"}
       ],
@@ -376,8 +545,8 @@
       }
     },
     {
-      "name": "regex-backstop-email-on-kept",
-      "description": "Regex backstop on kept strings: a kept field containing an email address is further masked by the email pattern.",
+      "name": "kept-email-sent-verbatim",
+      "description": "No built-in patterns: a kept field containing an email address is sent as it is.",
       "field_rules": [
         {"path": "body.contact", "action": "keep"}
       ],
@@ -391,7 +560,7 @@
         "resp_headers": {}
       },
       "expected": {
-        "masked_body": {"contact": "<masked>", "other": "<masked>"},
+        "masked_body": {"contact": "user@example.com", "other": "<masked>"},
         "masked_headers": {},
         "masked_query": {},
         "masked_resp_body": "",
@@ -399,8 +568,8 @@
       }
     },
     {
-      "name": "regex-backstop-card-on-kept",
-      "description": "Regex backstop on kept strings: a kept field containing a 16-digit card number is masked by the card pattern.",
+      "name": "kept-card-number-sent-verbatim",
+      "description": "No built-in patterns: a kept field containing a 16-digit card number is sent as it is.",
       "field_rules": [
         {"path": "body.payment", "action": "keep"}
       ],
@@ -414,7 +583,7 @@
         "resp_headers": {}
       },
       "expected": {
-        "masked_body": {"payment": "<masked>", "plan": "<masked>"},
+        "masked_body": {"payment": "4111111111111111", "plan": "<masked>"},
         "masked_headers": {},
         "masked_query": {},
         "masked_resp_body": "",
@@ -499,8 +668,8 @@
       }
     },
     {
-      "name": "query-regex-backstop",
-      "description": "Regex backstop applies to kept query values: kept query param containing email address → email pattern replaces it.",
+      "name": "query-kept-email-sent-verbatim",
+      "description": "No built-in patterns on query values: a kept query param containing an email address is sent as it is.",
       "field_rules": [
         {"path": "query.email", "action": "keep"}
       ],
@@ -516,7 +685,7 @@
       "expected": {
         "masked_body": "",
         "masked_headers": {},
-        "masked_query": {"email": ["<masked>"], "page": ["<masked>"]},
+        "masked_query": {"email": ["user@example.com"], "page": ["<masked>"]},
         "masked_resp_body": "",
         "masked_resp_headers": {}
       }

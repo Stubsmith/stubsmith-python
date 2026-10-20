@@ -1,16 +1,19 @@
 """
 Request/response masking - field masks, regex masks, and fail-closed masking.
 
-This module is a Python port of ``ingest-go/anonymizer.go`` with the following
-exact parity guarantees:
+This module applies the project's field and regex masks with these
+guarantees:
 
 - **Field masks**: case-insensitive key comparison (both sides lowercased).
   When a key matches, the entire value is replaced with ``'<masked>'`` with
   **no recursion** into the masked value.
 - **Regex masks**: applied to string values in declaration order.  The ``i``
   flag is honoured by prepending ``(?i)`` to the compiled pattern.  An empty
-  ``replace`` string becomes ``'<masked>'``.  Invalid patterns are silently
-  skipped.
+  ``replace`` string becomes ``'<masked>'``.  A pattern that does not compile
+  is not skipped: the rule set is marked unusable and every string it is
+  applied to becomes ``'<masked>'`` (see :func:`compile_rules`).  Strings
+  longer than :data:`MAX_REGEX_SCAN_CHARS` are masked without running any
+  regex.
 - **Lists** are recursed element-wise; other scalars (numbers, bools, None)
   pass through unchanged in rule-based masking.
 
@@ -20,8 +23,12 @@ The following header names (lowercased) are considered safe metadata and their
 values are kept.  All other header values are replaced with ``'<masked>'`` in
 both :func:`mask_known` and :func:`mask_all`::
 
-    content-type, content-length, accept, accept-encoding,
-    accept-language, user-agent, host, cache-control, transfer-encoding
+    content-type, content-length, accept, accept-encoding, host,
+    transfer-encoding
+
+The allowlist applies to request and response headers alike.  ``user-agent``,
+``cache-control`` and ``accept-language`` are not on it: their values are
+masked unless a ``header.`` or ``resp_header.`` keep rule keeps them.
 
 Fail-closed masking (:func:`mask_all`)
 ---------------------------------------
@@ -31,16 +38,14 @@ stays ``None``.  Structure (dicts, lists) and keys are preserved.  Form-encoded
 bodies keep their field names but replace all values with ``'<masked>'``.
 Non-JSON, non-form-encoded bodies become the string ``'<masked>'``.
 
-Parity note - divergence from ``ingest-go/anonymizer.go``
-----------------------------------------------------------
+Salted placeholders
+-------------------
 When ``STUBSMITH_MASK_SALT`` is set in the SDK process environment, the
 path-based masker in :mod:`~stubsmith.privacy.field_rules` may emit
 format-preserving placeholders (ISO 8601 timestamps, UUIDs, IBANs, etc.)
 via :mod:`~stubsmith.privacy.placeholders` rather than the constant
-``"<masked>"`` / ``0`` / ``False`` values.  This diverges from the Go ingest
-server's backstop masker, which never has access to the salt and always emits
-constant placeholders.  The divergence is intentional: the salt is edge-local
-by design so that the server structurally cannot generate these values.
+``"<masked>"`` / ``0`` / ``False`` values.  The salt stays in your process by
+design, so the server structurally cannot generate these values.
 
 :func:`mask_all` (this module's fail-closed path) is NOT affected - it has no
 field-type context and remains constant-only.  Only the rule-based path in
@@ -51,10 +56,13 @@ generation.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import urllib.parse
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger("stubsmith")
 
 # ---------------------------------------------------------------------------
 # Header allowlist
@@ -65,10 +73,7 @@ HEADER_ALLOWLIST: frozenset = frozenset({
     "content-length",
     "accept",
     "accept-encoding",
-    "accept-language",
-    "user-agent",
     "host",
-    "cache-control",
     "transfer-encoding",
 })
 
@@ -82,6 +87,24 @@ class CompiledRules:
 
     field_masks: frozenset  # lowercased, stripped field names
     regex_masks: tuple      # tuple of (re.Pattern, replacement_str)
+    # True when at least one regex mask could not be compiled.  The rule's
+    # effect is unknown, so :func:`_apply_regexes` masks every string.
+    unusable: bool = False
+
+
+# Strings longer than this are replaced by ``'<masked>'`` without running any
+# regex mask.  A customer pattern can backtrack badly on long input, and
+# masking runs inside the host application's request path.  Only applies
+# while at least one regex mask is active.  Counts code points.
+MAX_REGEX_SCAN_CHARS = 65536
+
+_warned_unusable_pattern = False
+
+
+def _reset_masking_warnings_for_tests() -> None:
+    """Re-arm the once-per-process unusable-pattern warning."""
+    global _warned_unusable_pattern
+    _warned_unusable_pattern = False
 
 
 def compile_rules(
@@ -97,31 +120,84 @@ def compile_rules(
     regex_masks:
         List of ``{"pattern": ..., "replace": ..., "flags": ...}`` dicts.
         ``flags="i"`` causes ``(?i)`` to be prepended.  Empty ``replace``
-        becomes ``'<masked>'``.  Patterns that fail to compile are silently
-        dropped.
+        becomes ``'<masked>'``.  A pattern that fails to compile marks the
+        result :attr:`CompiledRules.unusable`, so every string is masked;
+        the first one per process logs a WARNING naming its index.  So does
+        any malformed entry (a non-list, a non-string field mask, a regex
+        mask that is not an object, or has an empty or non-string pattern or
+        a non-string replacement or flags): the rule's intent is unknown, so nothing is skipped.
 
     Returns
     -------
     CompiledRules
         Thread-safe, immutable compiled-rule set.
     """
-    fields = frozenset(
-        f.lower().strip() for f in (field_masks or []) if f is not None
-    )
+    unusable = False
+
+    def fail_closed(what: str, reason: Any) -> None:
+        # Dropping a rule would quietly send what it was meant to mask.  Fail
+        # closed instead: every string the rules are applied to gets masked.
+        global _warned_unusable_pattern
+        nonlocal unusable
+        unusable = True
+        if not _warned_unusable_pattern:
+            _warned_unusable_pattern = True
+            logger.warning(
+                "stubsmith: %s cannot be used: %s; every kept string will be "
+                "masked (further invalid rules are reported silently)",
+                what, reason,
+            )
+
+    fields_list: List[str] = []
+    if field_masks and not isinstance(field_masks, (list, tuple)):
+        fail_closed("field_masks", "not a list")
+        field_masks = []
+    for index, f in enumerate(field_masks or []):
+        if f is None:
+            continue
+        if not isinstance(f, str):
+            fail_closed(f"field mask at index {index}", "not a string")
+            continue
+        fields_list.append(f.lower().strip())
+    fields = frozenset(fields_list)
+
     compiled: List[Tuple[re.Pattern, str]] = []
-    for m in (regex_masks or []):
+    if regex_masks and not isinstance(regex_masks, (list, tuple)):
+        fail_closed("regex_masks", "not a list")
+        regex_masks = []
+    for index, m in enumerate(regex_masks or []):
+        what = f"regex mask at index {index}"
+        if not isinstance(m, dict):
+            fail_closed(what, "not an object")
+            continue
         pattern = m.get("pattern") or ""
         flags = m.get("flags") or ""
         replace = m.get("replace")
         if replace is None or replace == "":
             replace = "<masked>"
+        if not isinstance(pattern, str):
+            fail_closed(what, "the pattern is not a string")
+            continue
+        if pattern == "":
+            fail_closed(what, "the pattern is empty")
+            continue
+        if not isinstance(replace, str):
+            fail_closed(what, "the replacement is not a string")
+            continue
+        if not isinstance(flags, (str, list, tuple)):
+            fail_closed(what, "the flags are not a string")
+            continue
         if "i" in flags:
             pattern = "(?i)" + pattern
         try:
             compiled.append((re.compile(pattern), replace))
-        except re.error:
-            continue  # silently skip invalid patterns
-    return CompiledRules(field_masks=fields, regex_masks=tuple(compiled))
+        except Exception as exc:
+            # re.error, or OverflowError for a repeat count Python cannot
+            # represent (e.g. a{99999999999}).
+            fail_closed(what, exc)
+    return CompiledRules(
+        field_masks=fields, regex_masks=tuple(compiled), unusable=unusable
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -143,7 +219,8 @@ def mask_known(
     - Form-encoded bodies: field names in ``rules.field_masks`` have their
       values replaced; remaining values have regex masks applied.
     - Query params: same logic as form-encoded.
-    - Unrecognised or non-parseable bodies are returned unchanged.
+    - Unrecognised or non-parseable bodies, including a form body that is not
+      ``key=value`` pairs, have only the regex masks applied.
 
     Returns
     -------
@@ -154,15 +231,18 @@ def mask_known(
     ct = _normalise_ct(content_type)
 
     if ct == "application/x-www-form-urlencoded":
-        masked_body = _mask_form_known(body, rules)
+        form = parse_form(body)
+        if form is not None:
+            masked_body = _mask_form_known(form, rules)
+        else:
+            masked_body = _apply_regexes(body, rules)
     else:
         try:
             parsed = json.loads(body)
             masked_body = json.dumps(_mask_object(parsed, rules))
         except Exception:
-            # Non-JSON plain-text body: still run regex masks so that e.g.
-            # credit-card numbers in text/plain bodies are caught.  Matches
-            # the string branch of applyRulesToInterface in anonymizer.go.
+            # Non-JSON plain-text body: still run regex masks so that a
+            # customer pattern also covers text/plain bodies.
             masked_body = _apply_regexes(body, rules)
 
     masked_query = _mask_query_known(query_params, rules)
@@ -172,7 +252,7 @@ def mask_known(
 def _mask_object(obj: Any, rules: CompiledRules) -> Any:
     """Recursively apply *rules* to a parsed JSON structure.
 
-    Matches ``applyRulesToInterface`` in ``ingest-go/anonymizer.go`` exactly:
+    Rules:
     - dict: if lowercased key is in field_masks → replace whole value with
       ``'<masked>'``, no recursion.  Otherwise recurse.
     - list: recurse into each element.
@@ -195,7 +275,15 @@ def _mask_object(obj: Any, rules: CompiledRules) -> Any:
 
 
 def _apply_regexes(s: str, rules: CompiledRules) -> str:
-    """Apply regex masks in declaration order."""
+    """Apply regex masks in declaration order.
+
+    Returns ``'<masked>'`` when the rule set is unusable, or when a regex
+    would run on a string longer than :data:`MAX_REGEX_SCAN_CHARS`.
+    """
+    if rules.unusable:
+        return "<masked>"
+    if rules.regex_masks and len(s) > MAX_REGEX_SCAN_CHARS:
+        return "<masked>"
     out = s
     for pattern, replace in rules.regex_masks:
         out = pattern.sub(replace, out)
@@ -217,7 +305,8 @@ def mask_all(
     - Header allowlist still applies (safe metadata headers are kept).
     - JSON: structure and keys preserved; strings → ``'<masked>'``,
       numbers → ``0``, booleans → ``False``, ``None`` stays ``None``.
-    - Form-encoded: field names kept, all values → ``'<masked>'``.
+    - Form-encoded: field names kept, all values → ``'<masked>'``. A form
+      body with a segment that has no ``=`` → ``'<masked>'``.
     - Any other body type → ``'<masked>'`` string.
     - All query param values → ``'<masked>'``.
 
@@ -231,9 +320,12 @@ def mask_all(
 
     if ct == "application/x-www-form-urlencoded":
         try:
-            parsed = urllib.parse.parse_qs(body, keep_blank_values=True)
-            out = {k: ["<masked>"] * len(v) for k, v in parsed.items()}
-            masked_body = urllib.parse.urlencode(out, doseq=True)
+            parsed = parse_form(body)
+            if parsed is None:
+                masked_body = "<masked>"
+            else:
+                out = {k: ["<masked>"] * len(v) for k, v in parsed.items()}
+                masked_body = urllib.parse.urlencode(out, doseq=True)
         except Exception:
             masked_body = "<masked>"
     else:
@@ -277,12 +369,8 @@ def _mask_headers(headers: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
-def _mask_form_known(body: str, rules: CompiledRules) -> str:
-    """Apply *rules* to a form-encoded body string."""
-    try:
-        parsed = urllib.parse.parse_qs(body, keep_blank_values=True)
-    except Exception:
-        return body
+def _mask_form_known(parsed: Dict[str, List[str]], rules: CompiledRules) -> str:
+    """Apply *rules* to a parsed form-encoded body."""
     out: Dict[str, List[str]] = {}
     for k, vals in parsed.items():
         if k.lower() in rules.field_masks:
@@ -328,3 +416,16 @@ def _mask_query_all(query_string: str) -> str:
 def _normalise_ct(content_type: str) -> str:
     """Lowercase and strip charset / boundary params."""
     return (content_type or "").lower().split(";")[0].strip()
+
+
+def parse_form(body: str) -> Optional[Dict[str, List[str]]]:
+    """Parse a form-encoded body, or return ``None`` if it is not one.
+
+    ``parse_qs`` turns a segment without ``=`` into a key with an empty value,
+    so free text labelled as a form would be sent as a field name. A body with
+    any non-empty ``&``-separated segment that has no ``=`` is therefore not a
+    form, and callers treat it like any other unparseable body.
+    """
+    if any(seg and "=" not in seg for seg in (body or "").split("&")):
+        return None
+    return urllib.parse.parse_qs(body, keep_blank_values=True)

@@ -195,7 +195,7 @@ def fixtures_bundle(
 
         The path is forwarded to the API as-is and resolved server-side by
         comparing it against stored ``path_pattern`` values using a
-        segment-level matcher (see ``backend/src/fixtures.js``): ``{param}``
+        segment-level matcher: ``{param}``
         tokens in the *stored* pattern act as wildcards, so passing the pattern
         string ``/v1/charges/{id}`` will correctly resolve a configured request
         type with that same path pattern.
@@ -306,7 +306,7 @@ def fixtures(
 
         The path is forwarded to the API as-is and resolved server-side by
         comparing it against stored ``path_pattern`` values using a
-        segment-level matcher (see ``backend/src/fixtures.js``): ``{param}``
+        segment-level matcher: ``{param}``
         tokens in the *stored* pattern act as wildcards, so passing the pattern
         string ``/v1/charges/{id}`` will correctly resolve a configured request
         type with that same path pattern.

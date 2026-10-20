@@ -38,6 +38,8 @@ from typing import Any, Callable, Dict, Optional, Tuple
 
 from ._replay_state import is_replay_active
 from ._version import __version__
+from .privacy.pipeline import RAW_PATH_FIELD
+from .privacy.templating import template_path
 
 logger = logging.getLogger("stubsmith")
 
@@ -225,6 +227,9 @@ _FLUSH_TIMEOUT        = 5.0
 # (0 disables the wait entirely).
 _ATEXIT_FLUSH_TIMEOUT = 1.0
 _SDK_USER_AGENT       = f"stubsmith-sdk/{__version__}"
+# How long, in seconds from client start, the sender holds a capture templated
+# before the first rules sync, waiting for the synced path settings.
+FIRST_SYNC_HOLD = 5.0
 
 
 def _resolve_debug_flag(debug: Optional[bool]) -> bool:
@@ -350,6 +355,10 @@ class StubSmith:
 
         self._queue_maxsize = queue_maxsize
         self._rules_cache_needs_restart = False
+        self._rules_started_at = time.monotonic()
+        # Number of flush() calls in progress; while non-zero the sender does not
+        # hold captures for the first rules sync.
+        self._flushing = 0
         self._queue: queue.Queue[Dict[str, Any]] = queue.Queue(maxsize=queue_maxsize)
         self._stop = threading.Event()
         self._worker = threading.Thread(target=self._drain, daemon=True, name="stubsmith-sender")
@@ -415,6 +424,7 @@ class StubSmith:
                 debug=self._debug,
             )
             self._rules_cache.start()
+            self._rules_started_at = time.monotonic()
 
             self._pipeline = PrivacyPipeline(
                 rules_cache=self._rules_cache,
@@ -730,15 +740,24 @@ class StubSmith:
         """
         deadline = time.monotonic() + timeout
         failures_at_entry = self._send_failures
-        while time.monotonic() < deadline:
-            if self._queue.empty():
-                break
-            if self._send_failures > failures_at_entry:
-                # A send has failed since we started waiting, so the endpoint is
-                # unreachable or refusing. Draining cannot succeed and every
-                # further second is charged to the application.
-                break
-            time.sleep(0.05)
+        # A flush means "send now": the sender stops holding captures for the
+        # first rules sync (see _resolve_pending_path), so a short script's exit
+        # flush is not spent waiting for a sync that may never come.
+        self._flushing += 1
+        try:
+            while time.monotonic() < deadline:
+                # unfinished_tasks, not empty(): the item the sender is holding
+                # for the first rules sync has left the queue but is not yet sent.
+                if self._queue.unfinished_tasks == 0:
+                    break
+                if self._send_failures > failures_at_entry:
+                    # A send has failed since we started waiting, so the endpoint is
+                    # unreachable or refusing. Draining cannot succeed and every
+                    # further second is charged to the application.
+                    break
+                time.sleep(0.05)
+        finally:
+            self._flushing -= 1
 
     @property
     def rules_synced(self) -> bool:
@@ -962,7 +981,7 @@ class StubSmith:
             except queue.Empty:
                 continue
             try:
-                self._do_send(payload)
+                self._do_send(self._resolve_pending_path(payload))
             except Exception as exc:
                 self._send_failures += 1
                 if isinstance(exc, urllib.error.HTTPError):
@@ -1001,6 +1020,47 @@ class StubSmith:
                 # until nothing can be queued at all.
                 self._release_queue_bytes(payload)
                 self._queue.task_done()
+
+    def _resolve_pending_path(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Return the payload to send, with the private raw-path field removed.
+
+        A capture processed before the first rules sync was templated with ID
+        grouping ON, because the project's "Group IDs in paths automatically"
+        setting was not yet known.  Hold such a capture here, on the sender
+        thread (never the request thread), until the first sync, for at most
+        FIRST_SYNC_HOLD seconds from client start.  If the sync arrives,
+        template the raw path again with the synced setting.  If the bound runs
+        out, keep the capture-time values.  The wait also ends when the client
+        is stopping or a flush() is in progress, so an exit flush sends the
+        capture rather than spending its budget waiting.
+        """
+        if RAW_PATH_FIELD not in payload:
+            return payload
+        out = dict(payload)
+        raw = out.pop(RAW_PATH_FIELD)
+        cache = self._rules_cache
+        if cache is None or not isinstance(raw, str):
+            return out
+        try:
+            deadline = self._rules_started_at + FIRST_SYNC_HOLD
+            synced = cache.wait_for_first_sync(0)
+            while not synced and not self._stop.is_set() and not self._flushing:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                synced = cache.wait_for_first_sync(min(0.1, remaining))
+            if synced:
+                query = str(out.get("path") or "").partition("?")[2]
+                template = template_path(
+                    raw,
+                    cache.get_curated_templates(),
+                    group_ids=cache.get_group_ids_in_paths(),
+                )
+                out["path_template"] = template
+                out["path"] = template + (f"?{query}" if query else "")
+        except Exception:
+            pass  # keep the capture-time values
+        return out
 
     def _release_queue_bytes(self, payload: Dict[str, Any]) -> None:
         """Return this payload's reservation to the queue byte budget."""

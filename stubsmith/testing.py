@@ -85,16 +85,15 @@ except ImportError:
 # header., resp., resp_header.) carries an explicit "keep" rule in the
 # per-fingerprint field rules delivered by GET /v1/sdk/sync.
 #
-# Placeholder values (SDK embedded):
+# Placeholder values (SDK built-in):
 #   strings  → "<masked>"
 #   numbers  → 0          (indistinguishable from a real zero - note this)
 #   booleans → False      (indistinguishable from a real False)
 #   null     → None       (not in this set; None just stays None)
 #
-# "<masked-cc>" is NOT emitted by the embedded backstop.  It comes from a
-# project's synced regex rule set (anonymizer/rules.json), which replaces
-# 16-digit card numbers.  The embedded backstop uses "<masked>" for both
-# emails and card numbers.
+# "<masked-cc>" is not emitted by the SDK itself.  It comes from a project's
+# own regex mask, for example one that replaces 16-digit card numbers with it.
+# The SDK has no built-in patterns.
 #
 # Tests must NEVER assert that a field equals one of these values (e.g. that
 # a name field equals "<masked>") unless you are explicitly verifying that
@@ -105,7 +104,7 @@ MASK_PLACEHOLDERS: frozenset = frozenset(
     {
         "<masked>",
         # Emitted by the project's synced regex rule for 16-digit card numbers,
-        # not the embedded backstop.  Include here because it appears in the
+        # not by the SDK.  Include here because it appears in the
         # card_number / card.number fixture fields.
         "<masked-cc>",
         # Non-string scalar placeholders.  In Python, 0 == False and they hash
