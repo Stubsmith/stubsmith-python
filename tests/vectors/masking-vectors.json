@@ -1,0 +1,2542 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [
+          "user.email"
+        ],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.user.email"
+          }
+        ]
+      },
+      "name": "pipeline/keep_body_path",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [
+          "page"
+        ],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "query.page"
+          }
+        ]
+      },
+      "name": "pipeline/keep_query_path",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [
+          "x-request-id"
+        ],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "header.X-Request-Id"
+          }
+        ]
+      },
+      "name": "pipeline/keep_header_path_lowercased",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "mask",
+            "path": "body.password"
+          }
+        ]
+      },
+      "name": "pipeline/mask_action_not_added",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": []
+      },
+      "name": "pipeline/empty_list",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": null
+      },
+      "name": "pipeline/none_list",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [
+          "ok"
+        ],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          "not-a-dict",
+          null,
+          {
+            "action": "keep",
+            "path": "body.ok"
+          }
+        ]
+      },
+      "name": "pipeline/invalid_entries_skipped",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [
+          "id"
+        ],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp.id"
+          }
+        ]
+      },
+      "name": "pipeline/keep_resp_path",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [
+          "user.email"
+        ],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp.user.email"
+          }
+        ]
+      },
+      "name": "pipeline/keep_resp_nested_path",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "mask",
+            "path": "resp.secret"
+          }
+        ]
+      },
+      "name": "pipeline/mask_resp_action_not_added",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [
+          "id"
+        ],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp.id"
+          }
+        ]
+      },
+      "name": "pipeline/resp_path_does_not_pollute_keep_body",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [
+          "x-trace-id"
+        ],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp_header.X-Trace-Id"
+          }
+        ]
+      },
+      "name": "pipeline/keep_resp_header_path_lowercased",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [
+          "authorization"
+        ],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp_header.authorization"
+          }
+        ]
+      },
+      "name": "pipeline/resp_header_does_not_pollute_keep_header",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [
+          "authorization"
+        ],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "header.authorization"
+          }
+        ]
+      },
+      "name": "pipeline/header_does_not_pollute_keep_resp_header",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "mask",
+            "path": "resp_header.x-secret"
+          }
+        ]
+      },
+      "name": "pipeline/mask_resp_header_not_added",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [
+          "authorization"
+        ],
+        "keep_query": [],
+        "keep_resp": [
+          "id"
+        ],
+        "keep_resp_header": [
+          "x-request-id"
+        ],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "header.authorization"
+          },
+          {
+            "action": "keep",
+            "path": "resp_header.x-request-id"
+          },
+          {
+            "action": "keep",
+            "path": "resp.id"
+          }
+        ]
+      },
+      "name": "pipeline/mixed_namespaces_stay_independent",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [
+          [
+            200,
+            "order_id"
+          ]
+        ],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp:200.order_id"
+          }
+        ]
+      },
+      "name": "privacy_modules/resp_status_keep_compiled",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [
+          [
+            404,
+            "error"
+          ]
+        ],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "mask",
+            "path": "resp:404.error"
+          }
+        ]
+      },
+      "name": "privacy_modules/resp_status_mask_compiled",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [
+          [
+            429,
+            "retry-after"
+          ]
+        ],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp_header:429.retry-after"
+          }
+        ]
+      },
+      "name": "privacy_modules/resp_header_status_keep_compiled",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [
+          [
+            500,
+            "x-trace-id"
+          ]
+        ],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "mask",
+            "path": "resp_header:500.x-trace-id"
+          }
+        ]
+      },
+      "name": "privacy_modules/resp_header_status_mask_compiled",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [
+          [
+            200,
+            "x-custom-header"
+          ]
+        ],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp_header:200.X-Custom-Header"
+          }
+        ]
+      },
+      "name": "privacy_modules/resp_header_status_name_lowercased",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [
+          [
+            100,
+            "x"
+          ]
+        ],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp:100.x"
+          }
+        ]
+      },
+      "name": "privacy_modules/boundary_status_100",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [
+          [
+            599,
+            "x"
+          ]
+        ],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp:599.x"
+          }
+        ]
+      },
+      "name": "privacy_modules/boundary_status_599",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [
+          [
+            200,
+            "items.[].id"
+          ]
+        ],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp:200.items.[].id"
+          }
+        ]
+      },
+      "name": "privacy_modules/nested_body_path_preserved",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [
+          [
+            404,
+            "x"
+          ]
+        ],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp:404.x"
+          }
+        ]
+      },
+      "name": "privacy_modules/resp_status_not_mistaken_for_resp_header",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [
+          [
+            429,
+            "retry-after"
+          ]
+        ],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp_header:429.retry-after"
+          }
+        ]
+      },
+      "name": "privacy_modules/resp_header_status_not_mistaken_for_resp_status",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"secret\": \"<masked>\", \"amount\": 0}",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "{\"secret\": \"sensitive\", \"amount\": 99}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/fail_closed_unknown_key_masked",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"secret\": \"<masked>\", \"amount\": 99}",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "{\"secret\": \"sensitive\", \"amount\": 99}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.amount"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/keep_body_path_survives",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"user\": {\"name\": \"alice\", \"email\": \"<masked>\"}}",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "{\"user\": {\"name\": \"alice\", \"email\": \"alice@example.com\"}}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.user.name"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/nested_path_keep",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"items\": [{\"price\": 10, \"secret\": \"<masked>\"}, {\"price\": 20, \"secret\": \"<masked>\"}]}",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "{\"items\": [{\"price\": 10, \"secret\": \"x\"}, {\"price\": 20, \"secret\": \"y\"}]}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.items.[].price"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/array_element_path_keep",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "query": "page=3&secret=%3Cmasked%3E"
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "query.page"
+          }
+        ],
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "project_defaults": null,
+        "query": "page=3&secret=abc",
+        "salt": null
+      },
+      "name": "pipeline/query_keep",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {},
+        "query": "a=%3Cmasked%3E&a=%3Cmasked%3E&b=%3Cmasked%3E"
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [],
+        "headers": {},
+        "project_defaults": null,
+        "query": "a=1&a=2&b=3",
+        "salt": null
+      },
+      "name": "pipeline/multi_valued_query_all_masked_by_default",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {},
+        "query": "a=1&a=2&b=%3Cmasked%3E"
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "query.a"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "query": "a=1&a=2&b=3",
+        "salt": null
+      },
+      "name": "pipeline/multi_valued_query_keep",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {
+          "content-type": "application/json",
+          "x-secret": "<masked>"
+        },
+        "query": ""
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [],
+        "headers": {
+          "content-type": "application/json",
+          "x-secret": "tok"
+        },
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/header_allowlist_always_kept",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {
+          "authorization": "<masked>",
+          "x-request-id": "req-123"
+        },
+        "query": ""
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "header.x-request-id"
+          }
+        ],
+        "headers": {
+          "authorization": "Bearer tok",
+          "x-request-id": "req-123"
+        },
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/header_explicit_keep_override",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "username=alice&password=%3Cmasked%3E",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "username=alice&password=s3cr3t",
+        "content_type": "application/x-www-form-urlencoded",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.username"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/form_encoded_body_keep_path",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/empty_body_passthrough",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"user\": {\"name\": \"<masked>\", \"tags\": [\"<masked>\"], \"n\": 0}}",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "{\"user\": {\"name\": \"Ana\", \"tags\": [\"x\"], \"n\": 2}}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.user"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/keeping_a_parent_does_not_keep_its_children",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"note\": \"ana@example.com 4111 1111 1111 1111\", \"other\": \"<masked>\"}",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "{\"note\": \"ana@example.com 4111 1111 1111 1111\", \"other\": \"x\"}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.note"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/kept_email_and_card_number_sent_verbatim",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"active\": false}",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "{\"active\": true}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/bool_masked_to_false",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"score\": null}",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "{\"score\": null}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.score"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/none_stays_none",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"items\": [1, 2, 3], \"secret\": \"<masked>\"}",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "{\"items\": [1, 2, 3], \"secret\": \"hide-me\"}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.items.[]"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "privacy_modules/scalar_array_keep_round_trip",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"rows\": [0, {\"deep\": {\"deeper\": \"SECRET\"}}], \"later\": [null, {\"late\": \"<masked>\"}]}",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "{\"rows\": [1, {\"deep\": {\"deeper\": \"SECRET\"}}], \"later\": [null, {\"late\": \"ALSO\"}]}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.rows.[].deep.deeper"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "privacy_modules/every_reported_path_is_reachable/rows",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"rows\": [0, {\"deep\": {\"deeper\": \"<masked>\"}}], \"later\": [null, {\"late\": \"ALSO\"}]}",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "{\"rows\": [1, {\"deep\": {\"deeper\": \"SECRET\"}}], \"later\": [null, {\"late\": \"ALSO\"}]}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.later.[].late"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "privacy_modules/every_reported_path_is_reachable/later",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {
+          "authorization": "<masked>",
+          "x-trace-id": "trace-abc"
+        }
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp_header.x-trace-id"
+          }
+        ],
+        "headers": {
+          "authorization": "Bearer tok",
+          "x-trace-id": "trace-abc"
+        },
+        "project_defaults": null,
+        "resp_status": null,
+        "salt": null
+      },
+      "name": "pipeline/resp_header_keep_rule_keeps_header",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {
+          "authorization": "<masked>"
+        }
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "header.authorization"
+          }
+        ],
+        "headers": {
+          "authorization": "Bearer resp-secret"
+        },
+        "project_defaults": null,
+        "resp_status": null,
+        "salt": null
+      },
+      "name": "pipeline/request_header_keep_does_not_keep_response_header",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {
+          "authorization": "<masked>"
+        },
+        "query": ""
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp_header.authorization"
+          }
+        ],
+        "headers": {
+          "authorization": "Bearer req-secret"
+        },
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/resp_header_keep_does_not_affect_request_header_path",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {
+          "authorization": "Bearer req-tok"
+        },
+        "query": ""
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "header.authorization"
+          }
+        ],
+        "headers": {
+          "authorization": "Bearer req-tok"
+        },
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/independence_req_keep_resp_mask/request",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {
+          "authorization": "<masked>"
+        }
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "header.authorization"
+          }
+        ],
+        "headers": {
+          "authorization": "Bearer resp-tok"
+        },
+        "project_defaults": null,
+        "resp_status": null,
+        "salt": null
+      },
+      "name": "pipeline/independence_req_keep_resp_mask/response",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {
+          "authorization": "<masked>"
+        },
+        "query": ""
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp_header.authorization"
+          }
+        ],
+        "headers": {
+          "authorization": "Bearer req-tok"
+        },
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/independence_resp_keep_req_mask/request",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {
+          "authorization": "Bearer resp-tok"
+        }
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp_header.authorization"
+          }
+        ],
+        "headers": {
+          "authorization": "Bearer resp-tok"
+        },
+        "project_defaults": null,
+        "resp_status": null,
+        "salt": null
+      },
+      "name": "pipeline/independence_resp_keep_req_mask/response",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {
+          "x-internal-token": "<masked>"
+        }
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [],
+        "headers": {
+          "x-internal-token": "secret123"
+        },
+        "project_defaults": null,
+        "resp_status": null,
+        "salt": null
+      },
+      "name": "pipeline/non_allowlisted_resp_header_masked_by_default",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {
+          "content-type": "application/json",
+          "x-secret": "<masked>"
+        }
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [],
+        "headers": {
+          "content-type": "application/json",
+          "x-secret": "tok"
+        },
+        "project_defaults": null,
+        "resp_status": null,
+        "salt": null
+      },
+      "name": "pipeline/allowlisted_resp_header_passes_without_rule",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"order_id\": \"ord-1\", \"amount\": 99, \"token\": \"<masked>\"}",
+        "headers": {}
+      },
+      "input": {
+        "body": "{\"order_id\": \"ord-1\", \"amount\": 99, \"token\": \"secret\"}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp.order_id"
+          },
+          {
+            "action": "keep",
+            "path": "resp:200.amount"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "resp_status": 200,
+        "salt": null
+      },
+      "name": "privacy_modules/scoped_keep_adds_path_not_in_generic",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"customer_email\": \"<masked>\", \"id\": \"<masked>\"}",
+        "headers": {}
+      },
+      "input": {
+        "body": "{\"customer_email\": \"alice@example.com\", \"id\": \"ord-1\"}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp.customer_email"
+          },
+          {
+            "action": "mask",
+            "path": "resp:200.customer_email"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "resp_status": 200,
+        "salt": null
+      },
+      "name": "privacy_modules/scoped_mask_overrides_generic_keep",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"error\": \"<masked>\", \"id\": 0}",
+        "headers": {}
+      },
+      "input": {
+        "body": "{\"error\": \"something\", \"id\": 1}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp:404.error"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "resp_status": 200,
+        "salt": null
+      },
+      "name": "privacy_modules/generic_rule_applies_for_different_status",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"id\": \"abc\", \"error\": \"<masked>\"}",
+        "headers": {}
+      },
+      "input": {
+        "body": "{\"id\": \"abc\", \"error\": \"not_found\"}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp.id"
+          },
+          {
+            "action": "keep",
+            "path": "resp:404.error"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "resp_status": null,
+        "salt": null
+      },
+      "name": "privacy_modules/resp_status_none_only_generic",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"id\": \"abc\", \"extra\": \"<masked>\"}",
+        "headers": {}
+      },
+      "input": {
+        "body": "{\"id\": \"abc\", \"extra\": \"val\"}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp.id"
+          },
+          {
+            "action": "keep",
+            "path": "resp:200.extra"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "resp_status": null,
+        "salt": null
+      },
+      "name": "privacy_modules/resp_status_default_is_none",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"id\": \"ord-1\", \"status\": \"created\", \"token\": \"<masked>\"}",
+        "headers": {
+          "content-type": "application/json",
+          "set-cookie": "<masked>",
+          "x-trace-id": "trace-abc"
+        }
+      },
+      "input": {
+        "body": "{\"id\": \"ord-1\", \"status\": \"created\", \"token\": \"secret\"}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp.id"
+          },
+          {
+            "action": "keep",
+            "path": "resp.status"
+          },
+          {
+            "action": "keep",
+            "path": "resp_header.x-trace-id"
+          }
+        ],
+        "headers": {
+          "content-type": "application/json",
+          "set-cookie": "sess=x",
+          "x-trace-id": "trace-abc"
+        },
+        "project_defaults": null,
+        "resp_status": 200,
+        "salt": null
+      },
+      "name": "privacy_modules/generic_only_rules_unchanged/with_status",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"id\": \"ord-1\", \"status\": \"created\", \"token\": \"<masked>\"}",
+        "headers": {
+          "content-type": "application/json",
+          "set-cookie": "<masked>",
+          "x-trace-id": "trace-abc"
+        }
+      },
+      "input": {
+        "body": "{\"id\": \"ord-1\", \"status\": \"created\", \"token\": \"secret\"}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp.id"
+          },
+          {
+            "action": "keep",
+            "path": "resp.status"
+          },
+          {
+            "action": "keep",
+            "path": "resp_header.x-trace-id"
+          }
+        ],
+        "headers": {
+          "content-type": "application/json",
+          "set-cookie": "sess=x",
+          "x-trace-id": "trace-abc"
+        },
+        "project_defaults": null,
+        "resp_status": null,
+        "salt": null
+      },
+      "name": "privacy_modules/generic_only_rules_unchanged/without_status",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "",
+        "headers": {
+          "content-type": "application/json",
+          "retry-after": "60",
+          "x-secret": "<masked>"
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp_header:429.retry-after"
+          }
+        ],
+        "headers": {
+          "content-type": "application/json",
+          "retry-after": "60",
+          "x-secret": "hidden"
+        },
+        "project_defaults": null,
+        "resp_status": 429,
+        "salt": null
+      },
+      "name": "privacy_modules/resp_header_scoped_keep",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "",
+        "headers": {
+          "content-type": "application/json",
+          "x-trace-id": "<masked>"
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp_header.x-trace-id"
+          },
+          {
+            "action": "mask",
+            "path": "resp_header:500.x-trace-id"
+          }
+        ],
+        "headers": {
+          "content-type": "application/json",
+          "x-trace-id": "trace-abc"
+        },
+        "project_defaults": null,
+        "resp_status": 500,
+        "salt": null
+      },
+      "name": "privacy_modules/resp_header_scoped_mask_overrides_generic_keep",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "",
+        "headers": {
+          "content-type": "application/json",
+          "retry-after": "<masked>"
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp_header:429.retry-after"
+          }
+        ],
+        "headers": {
+          "content-type": "application/json",
+          "retry-after": "60"
+        },
+        "project_defaults": null,
+        "resp_status": 200,
+        "salt": null
+      },
+      "name": "privacy_modules/resp_header_scoped_keep_wrong_status_no_effect",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "",
+        "headers": {
+          "content-type": "application/json",
+          "set-cookie": "<masked>"
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp_header:401.set-cookie"
+          }
+        ],
+        "headers": {
+          "content-type": "application/json",
+          "set-cookie": "session=abc; HttpOnly"
+        },
+        "project_defaults": null,
+        "resp_status": 200,
+        "salt": null
+      },
+      "name": "privacy_modules/credential_header_not_unmasked_by_wrong_status_scoped_keep",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "",
+        "headers": {
+          "content-type": "application/json",
+          "set-cookie": "session=abc; HttpOnly"
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp_header:401.set-cookie"
+          }
+        ],
+        "headers": {
+          "content-type": "application/json",
+          "set-cookie": "session=abc; HttpOnly"
+        },
+        "project_defaults": null,
+        "resp_status": 401,
+        "salt": null
+      },
+      "name": "privacy_modules/credential_header_can_be_unmasked_by_matching_status_scoped_keep",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "",
+        "headers": {
+          "content-type": "application/json",
+          "x-trace-id": "trace-abc"
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp_header:200.x-trace-id"
+          }
+        ],
+        "headers": {
+          "content-type": "application/json",
+          "x-trace-id": "trace-abc"
+        },
+        "project_defaults": null,
+        "resp_status": 200,
+        "salt": null
+      },
+      "name": "privacy_modules/non_credential_header_unmasked_by_status_scoped_keep",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [
+            "password",
+            "token"
+          ],
+          "regex_replacements": [],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "field_masks": [
+          "Password",
+          "  TOKEN  "
+        ],
+        "headers": {},
+        "query": "",
+        "regex_masks": []
+      },
+      "name": "privacy_modules/field_masks_lowercased",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [
+            "<masked>"
+          ],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "pattern": "foo",
+            "replace": ""
+          }
+        ]
+      },
+      "name": "privacy_modules/empty_replace_becomes_masked",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "{\"password\": \"<masked>\", \"user\": \"alice\"}",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [
+            "password"
+          ],
+          "regex_replacements": [],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": "{\"password\": \"s3cr3t\", \"user\": \"alice\"}",
+        "content_type": "application/json",
+        "field_masks": [
+          "password"
+        ],
+        "headers": {},
+        "query": "",
+        "regex_masks": []
+      },
+      "name": "privacy_modules/field_mask_replaces_value",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "{\"nested\": \"<masked>\"}",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [
+            "nested"
+          ],
+          "regex_replacements": [],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": "{\"nested\": {\"password\": \"s3cr3t\", \"inner\": \"x\"}}",
+        "content_type": "application/json",
+        "field_masks": [
+          "nested"
+        ],
+        "headers": {},
+        "query": "",
+        "regex_masks": []
+      },
+      "name": "privacy_modules/field_mask_no_recursion_into_masked_value",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "{\"Authorization\": \"<masked>\"}",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [
+            "authorization"
+          ],
+          "regex_replacements": [],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": "{\"Authorization\": \"Bearer tok\"}",
+        "content_type": "application/json",
+        "field_masks": [
+          "authorization"
+        ],
+        "headers": {},
+        "query": "",
+        "regex_masks": []
+      },
+      "name": "privacy_modules/field_mask_case_insensitive",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "{\"note\": \"<token>\"}",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [
+            "<token>"
+          ],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": "{\"note\": \"Bearer abc123xyz\"}",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "flags": "",
+            "pattern": "Bearer\\s+\\S+",
+            "replace": "<token>"
+          }
+        ]
+      },
+      "name": "privacy_modules/regex_applied_to_strings",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "{\"msg\": \"greetings\"}",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [
+            "hi",
+            "greetings"
+          ],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": "{\"msg\": \"hello world\"}",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "flags": "",
+            "pattern": "hello",
+            "replace": "hi"
+          },
+          {
+            "flags": "",
+            "pattern": "hi world",
+            "replace": "greetings"
+          }
+        ]
+      },
+      "name": "privacy_modules/regex_order_respected",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "{\"val\": \"<x>\"}",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [
+            "<x>"
+          ],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": "{\"val\": \"SECRET_VALUE\"}",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "flags": "i",
+            "pattern": "secret_value",
+            "replace": "<x>"
+          }
+        ]
+      },
+      "name": "privacy_modules/case_insensitive_regex_flag",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "{\"count\": 42, \"rate\": 3.14}",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": "{\"count\": 42, \"rate\": 3.14}",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": []
+      },
+      "name": "privacy_modules/numbers_unchanged_by_field_absent",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "{\"tags\": [\"a\", \"X\", \"c\"]}",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [
+            "X"
+          ],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": "{\"tags\": [\"a\", \"b\", \"c\"]}",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "flags": "",
+            "pattern": "b",
+            "replace": "X"
+          }
+        ]
+      },
+      "name": "privacy_modules/list_recursion",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "card <masked-cc> charged",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [
+            "<masked-cc>"
+          ],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": "card 4111111111111111 charged",
+        "content_type": "text/plain",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "flags": "",
+            "pattern": "\\b\\d{16}\\b",
+            "replace": "<masked-cc>"
+          }
+        ]
+      },
+      "name": "privacy_modules/non_json_body_regex_applied",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "hello world",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [
+            "X"
+          ],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": "hello world",
+        "content_type": "text/plain",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "flags": "",
+            "pattern": "\\d{16}",
+            "replace": "X"
+          }
+        ]
+      },
+      "name": "privacy_modules/non_json_body_no_matching_regex_unchanged",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {
+          "authorization": "<masked>",
+          "content-type": "application/json",
+          "cookie": "<masked>",
+          "host": "example.com",
+          "x-custom": "<masked>"
+        },
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {
+          "authorization": "Bearer tok",
+          "content-type": "application/json",
+          "cookie": "session=abc",
+          "host": "example.com",
+          "x-custom": "value"
+        },
+        "query": "",
+        "regex_masks": []
+      },
+      "name": "privacy_modules/mask_known_header_allowlist",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {
+          "accept": "value",
+          "accept-encoding": "value",
+          "content-length": "value",
+          "content-type": "value",
+          "host": "value",
+          "transfer-encoding": "value"
+        },
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "",
+        "field_masks": [],
+        "headers": {
+          "accept": "value",
+          "accept-encoding": "value",
+          "content-length": "value",
+          "content-type": "value",
+          "host": "value",
+          "transfer-encoding": "value"
+        },
+        "query": "",
+        "regex_masks": []
+      },
+      "name": "privacy_modules/all_allowlisted_names/mask_known",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {},
+        "query": "secret=%3Cmasked%3E&safe=123",
+        "rules": {
+          "field_masks": [
+            "secret"
+          ],
+          "regex_replacements": [],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "field_masks": [
+          "secret"
+        ],
+        "headers": {},
+        "query": "secret=abc&safe=123",
+        "regex_masks": []
+      },
+      "name": "privacy_modules/mask_known_field_mask_in_query",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {},
+        "query": "page=0&q=abc",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [
+            "0"
+          ],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {},
+        "query": "page=5&q=abc",
+        "regex_masks": [
+          {
+            "flags": "",
+            "pattern": "\\d+",
+            "replace": "0"
+          }
+        ]
+      },
+      "name": "privacy_modules/mask_known_regex_on_unmasked_query",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": []
+      },
+      "name": "privacy_modules/empty_query_string",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "Dear SECRET, your PIN",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [
+            "PIN"
+          ],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": "Dear SECRET, your PIN is 1234",
+        "content_type": "application/x-www-form-urlencoded",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "pattern": "PIN is \\d+",
+            "replace": "PIN"
+          }
+        ]
+      },
+      "name": "privacy_modules/mask_known_treats_it_as_text",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {
+          "authorization": "<masked>",
+          "content-type": "application/json",
+          "cookie": "<masked>",
+          "host": "example.com",
+          "x-custom": "<masked>"
+        },
+        "query": ""
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "headers": {
+          "authorization": "Bearer tok",
+          "content-type": "application/json",
+          "cookie": "session=abc",
+          "host": "example.com",
+          "x-custom": "value"
+        },
+        "query": ""
+      },
+      "name": "privacy_modules/mask_all_header_allowlist",
+      "op": "mask_all"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {
+          "accept": "value",
+          "accept-encoding": "value",
+          "content-length": "value",
+          "content-type": "value",
+          "host": "value",
+          "transfer-encoding": "value"
+        },
+        "query": ""
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "",
+        "headers": {
+          "accept": "value",
+          "accept-encoding": "value",
+          "content-length": "value",
+          "content-type": "value",
+          "host": "value",
+          "transfer-encoding": "value"
+        },
+        "query": ""
+      },
+      "name": "privacy_modules/all_allowlisted_names/mask_all",
+      "op": "mask_all"
+    },
+    {
+      "expected": {
+        "data_base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        "is_image": true,
+        "subtype": "png"
+      },
+      "input": {
+        "content_type": "image/png"
+      },
+      "name": "privacy_modules/image_png",
+      "op": "binary_placeholder"
+    },
+    {
+      "expected": {
+        "data_base64": "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAAAP/aAAcBAQAAAH///9k=",
+        "is_image": true,
+        "subtype": "jpeg"
+      },
+      "input": {
+        "content_type": "image/jpeg"
+      },
+      "name": "privacy_modules/image_jpeg",
+      "op": "binary_placeholder"
+    },
+    {
+      "expected": {
+        "data_base64": "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+        "is_image": true,
+        "subtype": "gif"
+      },
+      "input": {
+        "content_type": "image/gif"
+      },
+      "name": "privacy_modules/image_gif",
+      "op": "binary_placeholder"
+    },
+    {
+      "expected": {
+        "data_base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        "is_image": true,
+        "subtype": "png"
+      },
+      "input": {
+        "content_type": "image/webp"
+      },
+      "name": "privacy_modules/image_webp",
+      "op": "binary_placeholder"
+    },
+    {
+      "expected": {
+        "data_base64": "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAAAP/aAAcBAQAAAH///9k=",
+        "is_image": true,
+        "subtype": "jpeg"
+      },
+      "input": {
+        "content_type": "image/jpg"
+      },
+      "name": "privacy_modules/image_jpg_alias",
+      "op": "binary_placeholder"
+    },
+    {
+      "expected": {
+        "data_base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        "is_image": true,
+        "subtype": "png"
+      },
+      "input": {
+        "content_type": "image/avif"
+      },
+      "name": "privacy_modules/image_avif",
+      "op": "binary_placeholder"
+    },
+    {
+      "expected": {
+        "data_base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        "is_image": true,
+        "subtype": "png"
+      },
+      "input": {
+        "content_type": "image/png; charset=utf-8"
+      },
+      "name": "privacy_modules/image_png_charset",
+      "op": "binary_placeholder"
+    },
+    {
+      "expected": {
+        "data_base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        "is_image": true,
+        "subtype": "png"
+      },
+      "input": {
+        "content_type": "image/png; q=0.9"
+      },
+      "name": "privacy_modules/image_png_q_param",
+      "op": "binary_placeholder"
+    },
+    {
+      "expected": {
+        "data_base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        "is_image": true,
+        "subtype": "png"
+      },
+      "input": {
+        "content_type": "Image/PNG"
+      },
+      "name": "privacy_modules/image_mixed_case",
+      "op": "binary_placeholder"
+    },
+    {
+      "expected": {
+        "data_base64": null,
+        "is_image": false,
+        "subtype": null
+      },
+      "input": {
+        "content_type": "application/json"
+      },
+      "name": "privacy_modules/not_image_json",
+      "op": "binary_placeholder"
+    },
+    {
+      "expected": {
+        "data_base64": null,
+        "is_image": false,
+        "subtype": null
+      },
+      "input": {
+        "content_type": "text/html"
+      },
+      "name": "privacy_modules/not_image_html",
+      "op": "binary_placeholder"
+    },
+    {
+      "expected": {
+        "data_base64": null,
+        "is_image": false,
+        "subtype": null
+      },
+      "input": {
+        "content_type": ""
+      },
+      "name": "privacy_modules/not_image_empty",
+      "op": "binary_placeholder"
+    },
+    {
+      "expected": {
+        "data_base64": null,
+        "is_image": false,
+        "subtype": null
+      },
+      "input": {
+        "content_type": "video/mp4"
+      },
+      "name": "privacy_modules/not_image_video",
+      "op": "binary_placeholder"
+    }
+  ],
+  "description": "Masking behaviour of the field rules, the project mask rules, the header allowlist and image bodies. Shared vectors: the Python SDK is the source of truth and any other SDK runs the same file and must reproduce every expected value exactly. Each case is {name, op, input, expected}; op names one of the operations below. JSON bodies are source text, masked bodies are Python json.dumps text, and form and query output is urlencode(doseq=True) text; compare them as strings. A string of many equal characters is written {\"$repeat\": \"a\", \"times\": 65537}, and a string made of such parts {\"$concat\": [...]}; expand them before use.\nOperations used in this file:\n- compile_field_rules: input {field_rules}; expected the compiled sets as sorted lists: keep_body, keep_query, keep_header, keep_resp, keep_resp_header, keep_resp_status, mask_resp_status, keep_resp_header_status, mask_resp_header_status (the last four as [status, path] pairs sorted by status then path), and the objects body_mask_types, query_mask_types, resp_mask_types.\n- apply_field_rules: input {field_rules, body, headers, query, content_type, project_defaults, salt, email_domain}; compile the field rules, then mask a request. project_defaults is null or {field_masks, regex_masks}, compiled as the project's extra rules. salt is the STUBSMITH_MASK_SALT string (null means unset). email_domain null means the default. expected {body, headers, query}, compared as exact text.\n- apply_resp_field_rules: same input as apply_field_rules without query, plus resp_status (an integer or null); expected {body, headers}.\n- compile_and_mask: input {field_masks, regex_masks, body, headers, query, content_type}; compile the two lists as the project's mask rules (any JSON, including malformed values), then mask_known. expected {rules: {unusable, field_masks (sorted), regex_replacements (the replacement text of each usable regex, in order)}, body, headers, query}.\n- mask_all: input {body, headers, query, content_type}; expected {body, headers, query}.\n- binary_placeholder: input {content_type}; expected {is_image, subtype, data_base64}: the last two are null unless the type is an image, otherwise the placeholder's canonical subtype and its bytes in base64.\nNot vectorised (each stays a test in its own repository):\n- tests/test_privacy_modules.py::TestCompileRules::test_i_flag_prepends_prefix: reads the Python pattern string for (?i); the behaviour is in case_insensitive_regex_flag\n- tests/test_placeholders.py::TestFormatValidity::test_iban_mod97_boundary_check98: calls the private generator with crafted bytes\n- tests/test_value_types.py::TestClassifyScalar::test_never_raises_on_bytes: a bytes value is not JSON\n- tests/test_classifier_spec.py::TestGeneratedFromSpec and TestSpecExamples (7 tests): driven by the shared classifier spec file, not by these vectors\n- tests/test_capture.py: the requests and httpx capture tests, the userinfo and free-text form tests, the prepared-request test, the streaming and stream-guard tests, and the debug-logging and refusal-warning tests: need a real HTTP exchange through the instrumented client, or log capture\n- tests/test_pipeline.py::TestClientPipelineIntegration::test_pipeline_payload_enqueued_with_source_and_duration: needs a real HTTP exchange and the client queue",
+  "source": "stubsmith.privacy.field_rules, masking, binary (via tests/shared_vector_ops.py)"
+}
