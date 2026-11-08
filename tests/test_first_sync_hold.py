@@ -51,7 +51,7 @@ class _Sink:
 
 def _make(group_ids: bool):
     sink = _Sink()
-    client = StubSmith(url="http://stubsmith.test/v1/captures", api_key="sk-test", _send_fn=sink)
+    client = StubSmith(url="https://stubsmith.test/v1/captures", api_key="sk-test", _send_fn=sink)
     client._rules_cache.stop()
     cache = _Cache(group_ids)
     client._rules_cache = cache

@@ -23,6 +23,9 @@ import urllib.parse
 import urllib.request
 from typing import Dict, List, Optional
 
+from . import _endpoint
+from ._endpoint import check_endpoint
+
 _DEFAULT_API_URL = "https://app.stubsmith.dev/api"
 
 
@@ -267,6 +270,7 @@ def fixtures_bundle(
     if limit is not None:
         params["limit"] = str(limit)
 
+    check_endpoint(url)
     endpoint = url.rstrip("/") + "/v1/fixtures?" + urllib.parse.urlencode(params)
     req = urllib.request.Request(
         endpoint,
@@ -275,7 +279,7 @@ def fixtures_bundle(
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310
+        with _endpoint.urlopen(req, timeout=10) as resp:  # noqa: S310
             data = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")

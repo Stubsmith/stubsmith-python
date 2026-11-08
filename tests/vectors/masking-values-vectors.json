@@ -1,0 +1,4656 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "b49730ce@stub.invalid"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "email",
+        "values": [
+          {
+            "type": "str",
+            "value": "alice@example.com"
+          }
+        ]
+      },
+      "name": "placeholders/same_output_on_repeated_calls/email-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "dbbd7b3d-b4eb-4430-b8bb-733547e5969d"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "uuid",
+        "values": [
+          {
+            "type": "str",
+            "value": "any-string"
+          }
+        ]
+      },
+      "name": "placeholders/same_output_on_repeated_calls/uuid-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "2004-10-23T00:31:40+00:00"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "iso8601",
+        "values": [
+          {
+            "type": "str",
+            "value": "2024-01-01T00:00:00Z"
+          }
+        ]
+      },
+      "name": "placeholders/same_output_on_repeated_calls/iso8601-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "+11241003258"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "e164",
+        "values": [
+          {
+            "type": "str",
+            "value": "+12025550100"
+          }
+        ]
+      },
+      "name": "placeholders/same_output_on_repeated_calls/e164-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "NL69JIVU8428686976"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "iban",
+        "values": [
+          {
+            "type": "str",
+            "value": "DE44500105175407324931"
+          }
+        ]
+      },
+      "name": "placeholders/same_output_on_repeated_calls/iban-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "https://41d90e9a.stub.invalid/b1869845"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "url",
+        "values": [
+          {
+            "type": "str",
+            "value": "https://example.com/path"
+          }
+        ]
+      },
+      "name": "placeholders/same_output_on_repeated_calls/url-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "2954.79"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "decimal_amount",
+        "values": [
+          {
+            "type": "str",
+            "value": "99.99"
+          }
+        ]
+      },
+      "name": "placeholders/same_output_on_repeated_calls/decimal_amount-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "2954.79",
+            "type": "float"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "decimal_amount",
+        "values": [
+          {
+            "text": "99.99",
+            "type": "float"
+          }
+        ]
+      },
+      "name": "placeholders/same_output_on_repeated_calls/decimal_amount-float",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "5906",
+            "type": "int"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "decimal_amount",
+        "values": [
+          {
+            "text": "100",
+            "type": "int"
+          }
+        ]
+      },
+      "name": "placeholders/same_output_on_repeated_calls/decimal_amount-int",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "238567360",
+            "type": "int"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "integer_id",
+        "values": [
+          {
+            "text": "42",
+            "type": "int"
+          }
+        ]
+      },
+      "name": "placeholders/same_output_on_repeated_calls/integer_id-int",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "e1311562ac1c73253e99c3f62d7f32b3"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "opaque_token",
+        "values": [
+          {
+            "type": "str",
+            "value": "tok_abc123"
+          }
+        ]
+      },
+      "name": "placeholders/same_output_on_repeated_calls/opaque_token-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "text-7d9da68f41a9636a"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "free_text",
+        "values": [
+          {
+            "type": "str",
+            "value": "Hello, World!"
+          }
+        ]
+      },
+      "name": "placeholders/same_output_on_repeated_calls/free_text-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "206de8e6@stub.invalid"
+          }
+        ],
+        "salt_key_hex": "73616c742d61616161"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "salt-aaaa",
+        "semantic_type": "email",
+        "values": [
+          {
+            "type": "str",
+            "value": "user@example.com"
+          }
+        ]
+      },
+      "name": "placeholders/deterministic_across_salt_values/salt-aaaa",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "4e8320d5@stub.invalid"
+          }
+        ],
+        "salt_key_hex": "73616c742d62626262"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "salt-bbbb",
+        "semantic_type": "email",
+        "values": [
+          {
+            "type": "str",
+            "value": "user@example.com"
+          }
+        ]
+      },
+      "name": "placeholders/deterministic_across_salt_values/salt-bbbb",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "3656881f@stub.invalid"
+          },
+          {
+            "type": "str",
+            "value": "038c5c7c@stub.invalid"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "email",
+        "values": [
+          {
+            "type": "str",
+            "value": "value-one"
+          },
+          {
+            "type": "str",
+            "value": "value-two"
+          }
+        ]
+      },
+      "name": "placeholders/different_string_values_differ/email",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "3656881f-d3ac-4f57-879a-5149af8fd976"
+          },
+          {
+            "type": "str",
+            "value": "038c5c7c-2b90-42b2-a044-3b676ce80749"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "uuid",
+        "values": [
+          {
+            "type": "str",
+            "value": "value-one"
+          },
+          {
+            "type": "str",
+            "value": "value-two"
+          }
+        ]
+      },
+      "name": "placeholders/different_string_values_differ/uuid",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "2006-03-25T07:31:52+00:00"
+          },
+          {
+            "type": "str",
+            "value": "2003-09-09T04:43:24+00:00"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "iso8601",
+        "values": [
+          {
+            "type": "str",
+            "value": "value-one"
+          },
+          {
+            "type": "str",
+            "value": "value-two"
+          }
+        ]
+      },
+      "name": "placeholders/different_string_values_differ/iso8601",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "+14661125714"
+          },
+          {
+            "type": "str",
+            "value": "+13024344828"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "e164",
+        "values": [
+          {
+            "type": "str",
+            "value": "value-one"
+          },
+          {
+            "type": "str",
+            "value": "value-two"
+          }
+        ]
+      },
+      "name": "placeholders/different_string_values_differ/e164",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "NL68CIGF1257141353"
+          },
+          {
+            "type": "str",
+            "value": "NL66DKOU3448289382"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "iban",
+        "values": [
+          {
+            "type": "str",
+            "value": "value-one"
+          },
+          {
+            "type": "str",
+            "value": "value-two"
+          }
+        ]
+      },
+      "name": "placeholders/different_string_values_differ/iban",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "https://3656881f.stub.invalid/d3ac5f57"
+          },
+          {
+            "type": "str",
+            "value": "https://038c5c7c.stub.invalid/2b9072b2"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "url",
+        "values": [
+          {
+            "type": "str",
+            "value": "value-one"
+          },
+          {
+            "type": "str",
+            "value": "value-two"
+          }
+        ]
+      },
+      "name": "placeholders/different_string_values_differ/url",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "3656881fd3ac5f57479a5149af8fd976"
+          },
+          {
+            "type": "str",
+            "value": "038c5c7c2b9072b220443b676ce80749"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "opaque_token",
+        "values": [
+          {
+            "type": "str",
+            "value": "value-one"
+          },
+          {
+            "type": "str",
+            "value": "value-two"
+          }
+        ]
+      },
+      "name": "placeholders/different_string_values_differ/opaque_token",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "text-3656881fd3ac5f57"
+          },
+          {
+            "type": "str",
+            "value": "text-038c5c7c2b9072b2"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "free_text",
+        "values": [
+          {
+            "type": "str",
+            "value": "value-one"
+          },
+          {
+            "type": "str",
+            "value": "value-two"
+          }
+        ]
+      },
+      "name": "placeholders/different_string_values_differ/free_text",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "914369505",
+            "type": "int"
+          },
+          {
+            "text": "260755882",
+            "type": "int"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "integer_id",
+        "values": [
+          {
+            "text": "1",
+            "type": "int"
+          },
+          {
+            "text": "2",
+            "type": "int"
+          }
+        ]
+      },
+      "name": "placeholders/different_integer_ids_differ",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "9373",
+            "type": "int"
+          },
+          {
+            "text": "6071",
+            "type": "int"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "decimal_amount",
+        "values": [
+          {
+            "text": "1",
+            "type": "int"
+          },
+          {
+            "text": "2",
+            "type": "int"
+          }
+        ]
+      },
+      "name": "placeholders/different_decimal_amounts_differ",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "1299bfb8@stub.invalid"
+          },
+          {
+            "type": "str",
+            "value": "1299bfb8@stub.invalid"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "email",
+        "values": [
+          {
+            "type": "str",
+            "value": "alice@prod.example.com"
+          },
+          {
+            "type": "str",
+            "value": "alice@prod.example.com"
+          }
+        ]
+      },
+      "name": "placeholders/same_email_at_two_paths",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "5ab56436-f709-424c-a3b8-c54b2d568561"
+          },
+          {
+            "type": "str",
+            "value": "5ab56436-f709-424c-a3b8-c54b2d568561"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "uuid",
+        "values": [
+          {
+            "type": "str",
+            "value": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          {
+            "type": "str",
+            "value": "550e8400-e29b-41d4-a716-446655440000"
+          }
+        ]
+      },
+      "name": "placeholders/same_uuid_at_two_paths",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "b49730ce@stub.invalid"
+          },
+          {
+            "type": "str",
+            "value": "deab3768@stub.invalid"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "email",
+        "values": [
+          {
+            "type": "str",
+            "value": "alice@example.com"
+          },
+          {
+            "type": "str",
+            "value": "bob@example.com"
+          }
+        ]
+      },
+      "name": "placeholders/two_different_emails_remain_distinct",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "aa4ec354@stub.invalid"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "email",
+        "values": [
+          {
+            "type": "str",
+            "value": "user@example.com"
+          }
+        ]
+      },
+      "name": "placeholders/email_parseable",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "aa4ec354@acme.stub.invalid"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": "acme.stub.invalid",
+        "salt": "test-salt-value-1234",
+        "semantic_type": "email",
+        "values": [
+          {
+            "type": "str",
+            "value": "user@example.com"
+          }
+        ]
+      },
+      "name": "placeholders/email_uses_configured_domain",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "7f572007-9136-4e09-9197-17e9a8e3c38d"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "uuid",
+        "values": [
+          {
+            "type": "str",
+            "value": "original-value"
+          }
+        ]
+      },
+      "name": "placeholders/uuid_valid",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "2004-10-23T00:31:40+00:00"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "iso8601",
+        "values": [
+          {
+            "type": "str",
+            "value": "2024-01-01T00:00:00Z"
+          }
+        ]
+      },
+      "name": "placeholders/iso8601_parseable",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "2015-12-06T03:33:03+00:00"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "iso8601",
+        "values": [
+          {
+            "type": "str",
+            "value": "anything"
+          }
+        ]
+      },
+      "name": "placeholders/iso8601_components_in_range",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "+13126922814"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "e164",
+        "values": [
+          {
+            "type": "str",
+            "value": "+447700900123"
+          }
+        ]
+      },
+      "name": "placeholders/e164_format",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "NL51PSOX4101830784"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "iban",
+        "values": [
+          {
+            "type": "str",
+            "value": "GB29NWBK60161331926819"
+          }
+        ]
+      },
+      "name": "placeholders/iban_mod97",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "NL82YXYK5839317014"
+          },
+          {
+            "type": "str",
+            "value": "NL26BIFX1379932378"
+          },
+          {
+            "type": "str",
+            "value": "NL60PRTG4660421278"
+          },
+          {
+            "type": "str",
+            "value": "NL82HVBL6430498967"
+          },
+          {
+            "type": "str",
+            "value": "NL32JFGV7659616727"
+          },
+          {
+            "type": "str",
+            "value": "NL58GEWO6341067008"
+          },
+          {
+            "type": "str",
+            "value": "NL47JWLG4558817235"
+          },
+          {
+            "type": "str",
+            "value": "NL04CTCV2298836366"
+          },
+          {
+            "type": "str",
+            "value": "NL25DSUC2753997743"
+          },
+          {
+            "type": "str",
+            "value": "NL96QLDF0953871315"
+          },
+          {
+            "type": "str",
+            "value": "NL66NHMV9357719189"
+          },
+          {
+            "type": "str",
+            "value": "NL51WNYS5546562716"
+          },
+          {
+            "type": "str",
+            "value": "NL50EUAQ3755728176"
+          },
+          {
+            "type": "str",
+            "value": "NL64FLNL6331187156"
+          },
+          {
+            "type": "str",
+            "value": "NL90YGRT1918864412"
+          },
+          {
+            "type": "str",
+            "value": "NL31NWKA0505068503"
+          },
+          {
+            "type": "str",
+            "value": "NL48QPRS6241036826"
+          },
+          {
+            "type": "str",
+            "value": "NL64GQXL0959729849"
+          },
+          {
+            "type": "str",
+            "value": "NL90BCUH2032255899"
+          },
+          {
+            "type": "str",
+            "value": "NL61MFPJ4395298146"
+          },
+          {
+            "type": "str",
+            "value": "NL80CVFT8562464728"
+          },
+          {
+            "type": "str",
+            "value": "NL51OGCN6329302742"
+          },
+          {
+            "type": "str",
+            "value": "NL37CTRZ1121281986"
+          },
+          {
+            "type": "str",
+            "value": "NL92JJUR7334840404"
+          },
+          {
+            "type": "str",
+            "value": "NL15CFTR2440948628"
+          },
+          {
+            "type": "str",
+            "value": "NL30NPVI8445617639"
+          },
+          {
+            "type": "str",
+            "value": "NL46QZPS6955523979"
+          },
+          {
+            "type": "str",
+            "value": "NL51LZME1030514193"
+          },
+          {
+            "type": "str",
+            "value": "NL59BDUC6289129003"
+          },
+          {
+            "type": "str",
+            "value": "NL29MKBB3148748087"
+          },
+          {
+            "type": "str",
+            "value": "NL58CKGQ3117362656"
+          },
+          {
+            "type": "str",
+            "value": "NL22OQHO9400155013"
+          },
+          {
+            "type": "str",
+            "value": "NL70YJTW7273282505"
+          },
+          {
+            "type": "str",
+            "value": "NL90LMJQ4755512495"
+          },
+          {
+            "type": "str",
+            "value": "NL83OGAE6233285899"
+          },
+          {
+            "type": "str",
+            "value": "NL10NLVQ5975690911"
+          },
+          {
+            "type": "str",
+            "value": "NL44MAGF9371327874"
+          },
+          {
+            "type": "str",
+            "value": "NL04DMTP7376763227"
+          },
+          {
+            "type": "str",
+            "value": "NL94BHEI3490914959"
+          },
+          {
+            "type": "str",
+            "value": "NL10TRJM4939351165"
+          },
+          {
+            "type": "str",
+            "value": "NL38GJEF7788899562"
+          },
+          {
+            "type": "str",
+            "value": "NL45TBXC7767157835"
+          },
+          {
+            "type": "str",
+            "value": "NL09ATHQ3915437716"
+          },
+          {
+            "type": "str",
+            "value": "NL30SWIA5659062237"
+          },
+          {
+            "type": "str",
+            "value": "NL86PYNB5690923570"
+          },
+          {
+            "type": "str",
+            "value": "NL77QGIO9116491362"
+          },
+          {
+            "type": "str",
+            "value": "NL23GWRK3810648112"
+          },
+          {
+            "type": "str",
+            "value": "NL17ABRX0481965446"
+          },
+          {
+            "type": "str",
+            "value": "NL37QBHU7480013348"
+          },
+          {
+            "type": "str",
+            "value": "NL23IGJJ1197557264"
+          },
+          {
+            "type": "str",
+            "value": "NL15NOCW9329990700"
+          },
+          {
+            "type": "str",
+            "value": "NL43JFWJ7574217323"
+          },
+          {
+            "type": "str",
+            "value": "NL23VGRF4507831022"
+          },
+          {
+            "type": "str",
+            "value": "NL03VEMI5479522689"
+          },
+          {
+            "type": "str",
+            "value": "NL60VJOY0535047849"
+          },
+          {
+            "type": "str",
+            "value": "NL51XATW1656890945"
+          },
+          {
+            "type": "str",
+            "value": "NL72YJVV3259460248"
+          },
+          {
+            "type": "str",
+            "value": "NL10MTEJ8353767992"
+          },
+          {
+            "type": "str",
+            "value": "NL31WMDZ3357379857"
+          },
+          {
+            "type": "str",
+            "value": "NL38IAZO2787234850"
+          },
+          {
+            "type": "str",
+            "value": "NL51RMMU6442152456"
+          },
+          {
+            "type": "str",
+            "value": "NL28KTNO8550221779"
+          },
+          {
+            "type": "str",
+            "value": "NL86RDBS1372475402"
+          },
+          {
+            "type": "str",
+            "value": "NL85UNTP7824894066"
+          },
+          {
+            "type": "str",
+            "value": "NL82GXPK3820951698"
+          },
+          {
+            "type": "str",
+            "value": "NL13DIDJ8976194655"
+          },
+          {
+            "type": "str",
+            "value": "NL57SKGE8234833659"
+          },
+          {
+            "type": "str",
+            "value": "NL22AAMU1130558537"
+          },
+          {
+            "type": "str",
+            "value": "NL30YTTO7090887197"
+          },
+          {
+            "type": "str",
+            "value": "NL27BFLV1582937409"
+          },
+          {
+            "type": "str",
+            "value": "NL68WGSR0040587244"
+          },
+          {
+            "type": "str",
+            "value": "NL42NOSU9393752171"
+          },
+          {
+            "type": "str",
+            "value": "NL36RAJD4213739201"
+          },
+          {
+            "type": "str",
+            "value": "NL19ANQE1452592084"
+          },
+          {
+            "type": "str",
+            "value": "NL76KLSO8948175908"
+          },
+          {
+            "type": "str",
+            "value": "NL17FMGH4108847782"
+          },
+          {
+            "type": "str",
+            "value": "NL29DGFH3946769206"
+          },
+          {
+            "type": "str",
+            "value": "NL75SZIQ5653949263"
+          },
+          {
+            "type": "str",
+            "value": "NL36LALA3516317089"
+          },
+          {
+            "type": "str",
+            "value": "NL42FRQL7335406744"
+          },
+          {
+            "type": "str",
+            "value": "NL36XSOP9289434794"
+          },
+          {
+            "type": "str",
+            "value": "NL16ZBXT2478019431"
+          },
+          {
+            "type": "str",
+            "value": "NL22FXWD0433587024"
+          },
+          {
+            "type": "str",
+            "value": "NL43WAEQ7428204500"
+          },
+          {
+            "type": "str",
+            "value": "NL05PGRY3762074417"
+          },
+          {
+            "type": "str",
+            "value": "NL61MIYF5931421258"
+          },
+          {
+            "type": "str",
+            "value": "NL23NMDU7239053375"
+          },
+          {
+            "type": "str",
+            "value": "NL85HHVB3781279668"
+          },
+          {
+            "type": "str",
+            "value": "NL30NNII7156995608"
+          },
+          {
+            "type": "str",
+            "value": "NL91ICID8471585432"
+          },
+          {
+            "type": "str",
+            "value": "NL28YKUN3296941162"
+          },
+          {
+            "type": "str",
+            "value": "NL86CKST2418143792"
+          },
+          {
+            "type": "str",
+            "value": "NL65NTNE8380867080"
+          },
+          {
+            "type": "str",
+            "value": "NL23MDLV7391341428"
+          },
+          {
+            "type": "str",
+            "value": "NL73YCZO7938918157"
+          },
+          {
+            "type": "str",
+            "value": "NL29KEPS7832894068"
+          },
+          {
+            "type": "str",
+            "value": "NL75HTYA0629312029"
+          },
+          {
+            "type": "str",
+            "value": "NL54QDXJ7088164394"
+          },
+          {
+            "type": "str",
+            "value": "NL37HSEK2360902762"
+          },
+          {
+            "type": "str",
+            "value": "NL36YWZT4357854543"
+          },
+          {
+            "type": "str",
+            "value": "NL97BYMM1222560260"
+          },
+          {
+            "type": "str",
+            "value": "NL97GAIZ8979020188"
+          },
+          {
+            "type": "str",
+            "value": "NL78GOFR5769113596"
+          },
+          {
+            "type": "str",
+            "value": "NL79RERQ5332082576"
+          },
+          {
+            "type": "str",
+            "value": "NL94LANV3542837820"
+          },
+          {
+            "type": "str",
+            "value": "NL83RXBT2495045841"
+          },
+          {
+            "type": "str",
+            "value": "NL34UOKM4731805506"
+          },
+          {
+            "type": "str",
+            "value": "NL78LCOM4672356251"
+          },
+          {
+            "type": "str",
+            "value": "NL34IVNX7747237788"
+          },
+          {
+            "type": "str",
+            "value": "NL26PZFW6324288184"
+          },
+          {
+            "type": "str",
+            "value": "NL74IWUC3216573625"
+          },
+          {
+            "type": "str",
+            "value": "NL71DJAK4190544429"
+          },
+          {
+            "type": "str",
+            "value": "NL31OISK4713380701"
+          },
+          {
+            "type": "str",
+            "value": "NL84QWZG6112497706"
+          },
+          {
+            "type": "str",
+            "value": "NL74PGAL3283520215"
+          },
+          {
+            "type": "str",
+            "value": "NL10ABBB5036443758"
+          },
+          {
+            "type": "str",
+            "value": "NL67IYHQ9798941811"
+          },
+          {
+            "type": "str",
+            "value": "NL22BKVW1294782180"
+          },
+          {
+            "type": "str",
+            "value": "NL48ZJBI0523685022"
+          },
+          {
+            "type": "str",
+            "value": "NL62ZWGN4703728739"
+          },
+          {
+            "type": "str",
+            "value": "NL33QBMT8379258121"
+          },
+          {
+            "type": "str",
+            "value": "NL04COCL2383118384"
+          },
+          {
+            "type": "str",
+            "value": "NL38AJVP1071662174"
+          },
+          {
+            "type": "str",
+            "value": "NL44FMXX0760305461"
+          },
+          {
+            "type": "str",
+            "value": "NL02RPBD6008266093"
+          },
+          {
+            "type": "str",
+            "value": "NL56PRCV9821527528"
+          },
+          {
+            "type": "str",
+            "value": "NL18VNHC9724248888"
+          },
+          {
+            "type": "str",
+            "value": "NL91ORPI0739226730"
+          },
+          {
+            "type": "str",
+            "value": "NL41FOHI2580717681"
+          },
+          {
+            "type": "str",
+            "value": "NL56JMTK5347922871"
+          },
+          {
+            "type": "str",
+            "value": "NL02EGGG1763264224"
+          },
+          {
+            "type": "str",
+            "value": "NL27YUXZ8909140401"
+          },
+          {
+            "type": "str",
+            "value": "NL91DCBX6832643042"
+          },
+          {
+            "type": "str",
+            "value": "NL15NKIM8270143106"
+          },
+          {
+            "type": "str",
+            "value": "NL42OMAL5948249633"
+          },
+          {
+            "type": "str",
+            "value": "NL69KKXL0728722001"
+          },
+          {
+            "type": "str",
+            "value": "NL71KKKC8016370886"
+          },
+          {
+            "type": "str",
+            "value": "NL84HXFM3418903977"
+          },
+          {
+            "type": "str",
+            "value": "NL32VNWL8325967516"
+          },
+          {
+            "type": "str",
+            "value": "NL15PUNJ6601199925"
+          },
+          {
+            "type": "str",
+            "value": "NL66FPDR5148317995"
+          },
+          {
+            "type": "str",
+            "value": "NL42SQRF8882085300"
+          },
+          {
+            "type": "str",
+            "value": "NL63UUWW8773451457"
+          },
+          {
+            "type": "str",
+            "value": "NL49YBLW2492035464"
+          },
+          {
+            "type": "str",
+            "value": "NL40JNWP4258510182"
+          },
+          {
+            "type": "str",
+            "value": "NL34DMZD4509199408"
+          },
+          {
+            "type": "str",
+            "value": "NL73TUHG9760318263"
+          },
+          {
+            "type": "str",
+            "value": "NL77EFBD9874222516"
+          },
+          {
+            "type": "str",
+            "value": "NL28QZVP5504277468"
+          },
+          {
+            "type": "str",
+            "value": "NL70FDWO9236393232"
+          },
+          {
+            "type": "str",
+            "value": "NL56HGIH3504222894"
+          },
+          {
+            "type": "str",
+            "value": "NL64HKAN7069933138"
+          },
+          {
+            "type": "str",
+            "value": "NL16IRCH3363418651"
+          },
+          {
+            "type": "str",
+            "value": "NL20ECNQ3560067895"
+          },
+          {
+            "type": "str",
+            "value": "NL48HXEL0700271077"
+          },
+          {
+            "type": "str",
+            "value": "NL65QGAE4361199485"
+          },
+          {
+            "type": "str",
+            "value": "NL02ZERU9474990615"
+          },
+          {
+            "type": "str",
+            "value": "NL92WGDU7333322798"
+          },
+          {
+            "type": "str",
+            "value": "NL26LTLE4832945469"
+          },
+          {
+            "type": "str",
+            "value": "NL79NQWA7848255350"
+          },
+          {
+            "type": "str",
+            "value": "NL95WUEJ2236168043"
+          },
+          {
+            "type": "str",
+            "value": "NL93CIYA7839963477"
+          },
+          {
+            "type": "str",
+            "value": "NL68OSYG6844886695"
+          },
+          {
+            "type": "str",
+            "value": "NL19JCKO3662123685"
+          },
+          {
+            "type": "str",
+            "value": "NL83RAUR0262379069"
+          },
+          {
+            "type": "str",
+            "value": "NL95FLPZ5138246541"
+          },
+          {
+            "type": "str",
+            "value": "NL78EHNP3343437020"
+          },
+          {
+            "type": "str",
+            "value": "NL93VERT4830537609"
+          },
+          {
+            "type": "str",
+            "value": "NL34EOEM1348206626"
+          },
+          {
+            "type": "str",
+            "value": "NL96RRYO4634972981"
+          },
+          {
+            "type": "str",
+            "value": "NL13RABX5521876379"
+          },
+          {
+            "type": "str",
+            "value": "NL54JEVJ7637808003"
+          },
+          {
+            "type": "str",
+            "value": "NL62AYSH5910668285"
+          },
+          {
+            "type": "str",
+            "value": "NL21VTNP4528286797"
+          },
+          {
+            "type": "str",
+            "value": "NL77IGNL9273494112"
+          },
+          {
+            "type": "str",
+            "value": "NL49DLFE6198313910"
+          },
+          {
+            "type": "str",
+            "value": "NL47JLVI1770913739"
+          },
+          {
+            "type": "str",
+            "value": "NL17XHRP1284065630"
+          },
+          {
+            "type": "str",
+            "value": "NL06NGQK7711960849"
+          },
+          {
+            "type": "str",
+            "value": "NL79AEZE6528954014"
+          },
+          {
+            "type": "str",
+            "value": "NL95BPKU9942762705"
+          },
+          {
+            "type": "str",
+            "value": "NL66TVLZ9527266945"
+          },
+          {
+            "type": "str",
+            "value": "NL29IAXK3440156470"
+          },
+          {
+            "type": "str",
+            "value": "NL09ARMH8145985440"
+          },
+          {
+            "type": "str",
+            "value": "NL73LUQC8404814606"
+          },
+          {
+            "type": "str",
+            "value": "NL61WKRH5497452775"
+          },
+          {
+            "type": "str",
+            "value": "NL68EJVE0062653472"
+          },
+          {
+            "type": "str",
+            "value": "NL92ECBL8560790797"
+          },
+          {
+            "type": "str",
+            "value": "NL39RGRT0347089113"
+          },
+          {
+            "type": "str",
+            "value": "NL53LJBX7212669459"
+          },
+          {
+            "type": "str",
+            "value": "NL69KRUR6438641909"
+          },
+          {
+            "type": "str",
+            "value": "NL39EFQA7258411569"
+          },
+          {
+            "type": "str",
+            "value": "NL13QUTB0382719432"
+          },
+          {
+            "type": "str",
+            "value": "NL72EQOY8049044870"
+          },
+          {
+            "type": "str",
+            "value": "NL51GTLW1473263796"
+          },
+          {
+            "type": "str",
+            "value": "NL40PSWD3635745301"
+          },
+          {
+            "type": "str",
+            "value": "NL51FITE5708335557"
+          },
+          {
+            "type": "str",
+            "value": "NL51HZHX7268237664"
+          },
+          {
+            "type": "str",
+            "value": "NL25SPZB8444400891"
+          },
+          {
+            "type": "str",
+            "value": "NL77IWCB3882633362"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "iban",
+        "values": [
+          {
+            "type": "str",
+            "value": "account-0"
+          },
+          {
+            "type": "str",
+            "value": "account-1"
+          },
+          {
+            "type": "str",
+            "value": "account-2"
+          },
+          {
+            "type": "str",
+            "value": "account-3"
+          },
+          {
+            "type": "str",
+            "value": "account-4"
+          },
+          {
+            "type": "str",
+            "value": "account-5"
+          },
+          {
+            "type": "str",
+            "value": "account-6"
+          },
+          {
+            "type": "str",
+            "value": "account-7"
+          },
+          {
+            "type": "str",
+            "value": "account-8"
+          },
+          {
+            "type": "str",
+            "value": "account-9"
+          },
+          {
+            "type": "str",
+            "value": "account-10"
+          },
+          {
+            "type": "str",
+            "value": "account-11"
+          },
+          {
+            "type": "str",
+            "value": "account-12"
+          },
+          {
+            "type": "str",
+            "value": "account-13"
+          },
+          {
+            "type": "str",
+            "value": "account-14"
+          },
+          {
+            "type": "str",
+            "value": "account-15"
+          },
+          {
+            "type": "str",
+            "value": "account-16"
+          },
+          {
+            "type": "str",
+            "value": "account-17"
+          },
+          {
+            "type": "str",
+            "value": "account-18"
+          },
+          {
+            "type": "str",
+            "value": "account-19"
+          },
+          {
+            "type": "str",
+            "value": "account-20"
+          },
+          {
+            "type": "str",
+            "value": "account-21"
+          },
+          {
+            "type": "str",
+            "value": "account-22"
+          },
+          {
+            "type": "str",
+            "value": "account-23"
+          },
+          {
+            "type": "str",
+            "value": "account-24"
+          },
+          {
+            "type": "str",
+            "value": "account-25"
+          },
+          {
+            "type": "str",
+            "value": "account-26"
+          },
+          {
+            "type": "str",
+            "value": "account-27"
+          },
+          {
+            "type": "str",
+            "value": "account-28"
+          },
+          {
+            "type": "str",
+            "value": "account-29"
+          },
+          {
+            "type": "str",
+            "value": "account-30"
+          },
+          {
+            "type": "str",
+            "value": "account-31"
+          },
+          {
+            "type": "str",
+            "value": "account-32"
+          },
+          {
+            "type": "str",
+            "value": "account-33"
+          },
+          {
+            "type": "str",
+            "value": "account-34"
+          },
+          {
+            "type": "str",
+            "value": "account-35"
+          },
+          {
+            "type": "str",
+            "value": "account-36"
+          },
+          {
+            "type": "str",
+            "value": "account-37"
+          },
+          {
+            "type": "str",
+            "value": "account-38"
+          },
+          {
+            "type": "str",
+            "value": "account-39"
+          },
+          {
+            "type": "str",
+            "value": "account-40"
+          },
+          {
+            "type": "str",
+            "value": "account-41"
+          },
+          {
+            "type": "str",
+            "value": "account-42"
+          },
+          {
+            "type": "str",
+            "value": "account-43"
+          },
+          {
+            "type": "str",
+            "value": "account-44"
+          },
+          {
+            "type": "str",
+            "value": "account-45"
+          },
+          {
+            "type": "str",
+            "value": "account-46"
+          },
+          {
+            "type": "str",
+            "value": "account-47"
+          },
+          {
+            "type": "str",
+            "value": "account-48"
+          },
+          {
+            "type": "str",
+            "value": "account-49"
+          },
+          {
+            "type": "str",
+            "value": "account-50"
+          },
+          {
+            "type": "str",
+            "value": "account-51"
+          },
+          {
+            "type": "str",
+            "value": "account-52"
+          },
+          {
+            "type": "str",
+            "value": "account-53"
+          },
+          {
+            "type": "str",
+            "value": "account-54"
+          },
+          {
+            "type": "str",
+            "value": "account-55"
+          },
+          {
+            "type": "str",
+            "value": "account-56"
+          },
+          {
+            "type": "str",
+            "value": "account-57"
+          },
+          {
+            "type": "str",
+            "value": "account-58"
+          },
+          {
+            "type": "str",
+            "value": "account-59"
+          },
+          {
+            "type": "str",
+            "value": "account-60"
+          },
+          {
+            "type": "str",
+            "value": "account-61"
+          },
+          {
+            "type": "str",
+            "value": "account-62"
+          },
+          {
+            "type": "str",
+            "value": "account-63"
+          },
+          {
+            "type": "str",
+            "value": "account-64"
+          },
+          {
+            "type": "str",
+            "value": "account-65"
+          },
+          {
+            "type": "str",
+            "value": "account-66"
+          },
+          {
+            "type": "str",
+            "value": "account-67"
+          },
+          {
+            "type": "str",
+            "value": "account-68"
+          },
+          {
+            "type": "str",
+            "value": "account-69"
+          },
+          {
+            "type": "str",
+            "value": "account-70"
+          },
+          {
+            "type": "str",
+            "value": "account-71"
+          },
+          {
+            "type": "str",
+            "value": "account-72"
+          },
+          {
+            "type": "str",
+            "value": "account-73"
+          },
+          {
+            "type": "str",
+            "value": "account-74"
+          },
+          {
+            "type": "str",
+            "value": "account-75"
+          },
+          {
+            "type": "str",
+            "value": "account-76"
+          },
+          {
+            "type": "str",
+            "value": "account-77"
+          },
+          {
+            "type": "str",
+            "value": "account-78"
+          },
+          {
+            "type": "str",
+            "value": "account-79"
+          },
+          {
+            "type": "str",
+            "value": "account-80"
+          },
+          {
+            "type": "str",
+            "value": "account-81"
+          },
+          {
+            "type": "str",
+            "value": "account-82"
+          },
+          {
+            "type": "str",
+            "value": "account-83"
+          },
+          {
+            "type": "str",
+            "value": "account-84"
+          },
+          {
+            "type": "str",
+            "value": "account-85"
+          },
+          {
+            "type": "str",
+            "value": "account-86"
+          },
+          {
+            "type": "str",
+            "value": "account-87"
+          },
+          {
+            "type": "str",
+            "value": "account-88"
+          },
+          {
+            "type": "str",
+            "value": "account-89"
+          },
+          {
+            "type": "str",
+            "value": "account-90"
+          },
+          {
+            "type": "str",
+            "value": "account-91"
+          },
+          {
+            "type": "str",
+            "value": "account-92"
+          },
+          {
+            "type": "str",
+            "value": "account-93"
+          },
+          {
+            "type": "str",
+            "value": "account-94"
+          },
+          {
+            "type": "str",
+            "value": "account-95"
+          },
+          {
+            "type": "str",
+            "value": "account-96"
+          },
+          {
+            "type": "str",
+            "value": "account-97"
+          },
+          {
+            "type": "str",
+            "value": "account-98"
+          },
+          {
+            "type": "str",
+            "value": "account-99"
+          },
+          {
+            "type": "str",
+            "value": "account-100"
+          },
+          {
+            "type": "str",
+            "value": "account-101"
+          },
+          {
+            "type": "str",
+            "value": "account-102"
+          },
+          {
+            "type": "str",
+            "value": "account-103"
+          },
+          {
+            "type": "str",
+            "value": "account-104"
+          },
+          {
+            "type": "str",
+            "value": "account-105"
+          },
+          {
+            "type": "str",
+            "value": "account-106"
+          },
+          {
+            "type": "str",
+            "value": "account-107"
+          },
+          {
+            "type": "str",
+            "value": "account-108"
+          },
+          {
+            "type": "str",
+            "value": "account-109"
+          },
+          {
+            "type": "str",
+            "value": "account-110"
+          },
+          {
+            "type": "str",
+            "value": "account-111"
+          },
+          {
+            "type": "str",
+            "value": "account-112"
+          },
+          {
+            "type": "str",
+            "value": "account-113"
+          },
+          {
+            "type": "str",
+            "value": "account-114"
+          },
+          {
+            "type": "str",
+            "value": "account-115"
+          },
+          {
+            "type": "str",
+            "value": "account-116"
+          },
+          {
+            "type": "str",
+            "value": "account-117"
+          },
+          {
+            "type": "str",
+            "value": "account-118"
+          },
+          {
+            "type": "str",
+            "value": "account-119"
+          },
+          {
+            "type": "str",
+            "value": "account-120"
+          },
+          {
+            "type": "str",
+            "value": "account-121"
+          },
+          {
+            "type": "str",
+            "value": "account-122"
+          },
+          {
+            "type": "str",
+            "value": "account-123"
+          },
+          {
+            "type": "str",
+            "value": "account-124"
+          },
+          {
+            "type": "str",
+            "value": "account-125"
+          },
+          {
+            "type": "str",
+            "value": "account-126"
+          },
+          {
+            "type": "str",
+            "value": "account-127"
+          },
+          {
+            "type": "str",
+            "value": "account-128"
+          },
+          {
+            "type": "str",
+            "value": "account-129"
+          },
+          {
+            "type": "str",
+            "value": "account-130"
+          },
+          {
+            "type": "str",
+            "value": "account-131"
+          },
+          {
+            "type": "str",
+            "value": "account-132"
+          },
+          {
+            "type": "str",
+            "value": "account-133"
+          },
+          {
+            "type": "str",
+            "value": "account-134"
+          },
+          {
+            "type": "str",
+            "value": "account-135"
+          },
+          {
+            "type": "str",
+            "value": "account-136"
+          },
+          {
+            "type": "str",
+            "value": "account-137"
+          },
+          {
+            "type": "str",
+            "value": "account-138"
+          },
+          {
+            "type": "str",
+            "value": "account-139"
+          },
+          {
+            "type": "str",
+            "value": "account-140"
+          },
+          {
+            "type": "str",
+            "value": "account-141"
+          },
+          {
+            "type": "str",
+            "value": "account-142"
+          },
+          {
+            "type": "str",
+            "value": "account-143"
+          },
+          {
+            "type": "str",
+            "value": "account-144"
+          },
+          {
+            "type": "str",
+            "value": "account-145"
+          },
+          {
+            "type": "str",
+            "value": "account-146"
+          },
+          {
+            "type": "str",
+            "value": "account-147"
+          },
+          {
+            "type": "str",
+            "value": "account-148"
+          },
+          {
+            "type": "str",
+            "value": "account-149"
+          },
+          {
+            "type": "str",
+            "value": "account-150"
+          },
+          {
+            "type": "str",
+            "value": "account-151"
+          },
+          {
+            "type": "str",
+            "value": "account-152"
+          },
+          {
+            "type": "str",
+            "value": "account-153"
+          },
+          {
+            "type": "str",
+            "value": "account-154"
+          },
+          {
+            "type": "str",
+            "value": "account-155"
+          },
+          {
+            "type": "str",
+            "value": "account-156"
+          },
+          {
+            "type": "str",
+            "value": "account-157"
+          },
+          {
+            "type": "str",
+            "value": "account-158"
+          },
+          {
+            "type": "str",
+            "value": "account-159"
+          },
+          {
+            "type": "str",
+            "value": "account-160"
+          },
+          {
+            "type": "str",
+            "value": "account-161"
+          },
+          {
+            "type": "str",
+            "value": "account-162"
+          },
+          {
+            "type": "str",
+            "value": "account-163"
+          },
+          {
+            "type": "str",
+            "value": "account-164"
+          },
+          {
+            "type": "str",
+            "value": "account-165"
+          },
+          {
+            "type": "str",
+            "value": "account-166"
+          },
+          {
+            "type": "str",
+            "value": "account-167"
+          },
+          {
+            "type": "str",
+            "value": "account-168"
+          },
+          {
+            "type": "str",
+            "value": "account-169"
+          },
+          {
+            "type": "str",
+            "value": "account-170"
+          },
+          {
+            "type": "str",
+            "value": "account-171"
+          },
+          {
+            "type": "str",
+            "value": "account-172"
+          },
+          {
+            "type": "str",
+            "value": "account-173"
+          },
+          {
+            "type": "str",
+            "value": "account-174"
+          },
+          {
+            "type": "str",
+            "value": "account-175"
+          },
+          {
+            "type": "str",
+            "value": "account-176"
+          },
+          {
+            "type": "str",
+            "value": "account-177"
+          },
+          {
+            "type": "str",
+            "value": "account-178"
+          },
+          {
+            "type": "str",
+            "value": "account-179"
+          },
+          {
+            "type": "str",
+            "value": "account-180"
+          },
+          {
+            "type": "str",
+            "value": "account-181"
+          },
+          {
+            "type": "str",
+            "value": "account-182"
+          },
+          {
+            "type": "str",
+            "value": "account-183"
+          },
+          {
+            "type": "str",
+            "value": "account-184"
+          },
+          {
+            "type": "str",
+            "value": "account-185"
+          },
+          {
+            "type": "str",
+            "value": "account-186"
+          },
+          {
+            "type": "str",
+            "value": "account-187"
+          },
+          {
+            "type": "str",
+            "value": "account-188"
+          },
+          {
+            "type": "str",
+            "value": "account-189"
+          },
+          {
+            "type": "str",
+            "value": "account-190"
+          },
+          {
+            "type": "str",
+            "value": "account-191"
+          },
+          {
+            "type": "str",
+            "value": "account-192"
+          },
+          {
+            "type": "str",
+            "value": "account-193"
+          },
+          {
+            "type": "str",
+            "value": "account-194"
+          },
+          {
+            "type": "str",
+            "value": "account-195"
+          },
+          {
+            "type": "str",
+            "value": "account-196"
+          },
+          {
+            "type": "str",
+            "value": "account-197"
+          },
+          {
+            "type": "str",
+            "value": "account-198"
+          },
+          {
+            "type": "str",
+            "value": "account-199"
+          }
+        ]
+      },
+      "name": "placeholders/iban_mod97_spread",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "NL74HZBL6401308398"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "iban",
+        "values": [
+          {
+            "type": "str",
+            "value": "some-account"
+          }
+        ]
+      },
+      "name": "placeholders/iban_nl_prefix",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "https://92588fd2.stub.invalid/82a26413"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "url",
+        "values": [
+          {
+            "type": "str",
+            "value": "https://example.com/api/v1/users"
+          }
+        ]
+      },
+      "name": "placeholders/url_parseable",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "692.89"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "decimal_amount",
+        "values": [
+          {
+            "type": "str",
+            "value": "12.99"
+          }
+        ]
+      },
+      "name": "placeholders/decimal_amount_string_input",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "692.89",
+            "type": "float"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "decimal_amount",
+        "values": [
+          {
+            "text": "12.99",
+            "type": "float"
+          }
+        ]
+      },
+      "name": "placeholders/decimal_amount_float_input",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "5906",
+            "type": "int"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "decimal_amount",
+        "values": [
+          {
+            "text": "100",
+            "type": "int"
+          }
+        ]
+      },
+      "name": "placeholders/decimal_amount_int_input",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "238567360",
+            "type": "int"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "integer_id",
+        "values": [
+          {
+            "text": "42",
+            "type": "int"
+          }
+        ]
+      },
+      "name": "placeholders/integer_id_positive",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "6d307554ea97cd46c8c880c6774f25d9"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "opaque_token",
+        "values": [
+          {
+            "type": "str",
+            "value": "tok_abc123xyz"
+          }
+        ]
+      },
+      "name": "placeholders/opaque_token_is_string",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "text-40fb492f1b72851a"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "free_text",
+        "values": [
+          {
+            "type": "str",
+            "value": "Hello World"
+          }
+        ]
+      },
+      "name": "placeholders/free_text_is_string",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "<masked>"
+          }
+        ],
+        "salt_key_hex": null
+      },
+      "input": {
+        "email_domain": null,
+        "salt": null,
+        "semantic_type": "email",
+        "values": [
+          {
+            "type": "str",
+            "value": "user@example.com"
+          }
+        ]
+      },
+      "name": "placeholders/constant_when_salt_none/email-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "<masked>"
+          }
+        ],
+        "salt_key_hex": null
+      },
+      "input": {
+        "email_domain": null,
+        "salt": null,
+        "semantic_type": "uuid",
+        "values": [
+          {
+            "type": "str",
+            "value": "some-uuid"
+          }
+        ]
+      },
+      "name": "placeholders/constant_when_salt_none/uuid-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "<masked>"
+          }
+        ],
+        "salt_key_hex": null
+      },
+      "input": {
+        "email_domain": null,
+        "salt": null,
+        "semantic_type": "iso8601",
+        "values": [
+          {
+            "type": "str",
+            "value": "2024-01-01"
+          }
+        ]
+      },
+      "name": "placeholders/constant_when_salt_none/iso8601-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "<masked>"
+          }
+        ],
+        "salt_key_hex": null
+      },
+      "input": {
+        "email_domain": null,
+        "salt": null,
+        "semantic_type": "e164",
+        "values": [
+          {
+            "type": "str",
+            "value": "+1234567890"
+          }
+        ]
+      },
+      "name": "placeholders/constant_when_salt_none/e164-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "<masked>"
+          }
+        ],
+        "salt_key_hex": null
+      },
+      "input": {
+        "email_domain": null,
+        "salt": null,
+        "semantic_type": "iban",
+        "values": [
+          {
+            "type": "str",
+            "value": "GB29NWBK..."
+          }
+        ]
+      },
+      "name": "placeholders/constant_when_salt_none/iban-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "<masked>"
+          }
+        ],
+        "salt_key_hex": null
+      },
+      "input": {
+        "email_domain": null,
+        "salt": null,
+        "semantic_type": "url",
+        "values": [
+          {
+            "type": "str",
+            "value": "https://x.com"
+          }
+        ]
+      },
+      "name": "placeholders/constant_when_salt_none/url-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "<masked>"
+          }
+        ],
+        "salt_key_hex": null
+      },
+      "input": {
+        "email_domain": null,
+        "salt": null,
+        "semantic_type": "opaque_token",
+        "values": [
+          {
+            "type": "str",
+            "value": "tok_abc"
+          }
+        ]
+      },
+      "name": "placeholders/constant_when_salt_none/opaque_token-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "<masked>"
+          }
+        ],
+        "salt_key_hex": null
+      },
+      "input": {
+        "email_domain": null,
+        "salt": null,
+        "semantic_type": "free_text",
+        "values": [
+          {
+            "type": "str",
+            "value": "anything"
+          }
+        ]
+      },
+      "name": "placeholders/constant_when_salt_none/free_text-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "0",
+            "type": "int"
+          }
+        ],
+        "salt_key_hex": null
+      },
+      "input": {
+        "email_domain": null,
+        "salt": null,
+        "semantic_type": "integer_id",
+        "values": [
+          {
+            "text": "123",
+            "type": "int"
+          }
+        ]
+      },
+      "name": "placeholders/constant_when_salt_none/integer_id-int",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "0",
+            "type": "int"
+          }
+        ],
+        "salt_key_hex": null
+      },
+      "input": {
+        "email_domain": null,
+        "salt": null,
+        "semantic_type": "decimal_amount",
+        "values": [
+          {
+            "text": "9.99",
+            "type": "float"
+          }
+        ]
+      },
+      "name": "placeholders/constant_when_salt_none/decimal_amount-float",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "0",
+            "type": "int"
+          }
+        ],
+        "salt_key_hex": null
+      },
+      "input": {
+        "email_domain": null,
+        "salt": null,
+        "semantic_type": "decimal_amount",
+        "values": [
+          {
+            "text": "9",
+            "type": "int"
+          }
+        ]
+      },
+      "name": "placeholders/constant_when_salt_none/decimal_amount-int",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "<masked>"
+          }
+        ],
+        "salt_key_hex": null
+      },
+      "input": {
+        "email_domain": null,
+        "salt": null,
+        "semantic_type": "decimal_amount",
+        "values": [
+          {
+            "type": "str",
+            "value": "9.99"
+          }
+        ]
+      },
+      "name": "placeholders/constant_when_salt_none/decimal_amount-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "<masked>"
+          }
+        ],
+        "salt_key_hex": null
+      },
+      "input": {
+        "email_domain": null,
+        "salt": null,
+        "semantic_type": "currency_code",
+        "values": [
+          {
+            "type": "str",
+            "value": "USD"
+          }
+        ]
+      },
+      "name": "placeholders/constant_when_salt_none/currency_code-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "<masked>"
+          }
+        ],
+        "salt_key_hex": null
+      },
+      "input": {
+        "email_domain": null,
+        "salt": null,
+        "semantic_type": "country_code",
+        "values": [
+          {
+            "type": "str",
+            "value": "US"
+          }
+        ]
+      },
+      "name": "placeholders/constant_when_salt_none/country_code-str",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "bool",
+            "value": false
+          }
+        ],
+        "salt_key_hex": null
+      },
+      "input": {
+        "email_domain": null,
+        "salt": null,
+        "semantic_type": "free_text",
+        "values": [
+          {
+            "type": "bool",
+            "value": true
+          }
+        ]
+      },
+      "name": "placeholders/bool_is_always_false/no_salt",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "bool",
+            "value": false
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "email",
+        "values": [
+          {
+            "type": "bool",
+            "value": true
+          }
+        ]
+      },
+      "name": "placeholders/bool_is_always_false/salt",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "none"
+          }
+        ],
+        "salt_key_hex": null
+      },
+      "input": {
+        "email_domain": null,
+        "salt": null,
+        "semantic_type": "email",
+        "values": [
+          {
+            "type": "none"
+          }
+        ]
+      },
+      "name": "placeholders/none_stays_none/no_salt",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "none"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "email",
+        "values": [
+          {
+            "type": "none"
+          }
+        ]
+      },
+      "name": "placeholders/none_stays_none/salt",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [],
+        "salt_key_hex": null
+      },
+      "input": {
+        "email_domain": null,
+        "salt": null,
+        "semantic_type": "email",
+        "values": []
+      },
+      "name": "placeholders/get_salt/absent",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [],
+        "salt_key_hex": "6d79736563726574"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "mysecret",
+        "semantic_type": "email",
+        "values": []
+      },
+      "name": "placeholders/get_salt/present",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [],
+        "salt_key_hex": "78787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "semantic_type": "email",
+        "values": []
+      },
+      "name": "placeholders/get_salt/truncates_long_key",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "<masked>"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "currency_code",
+        "values": [
+          {
+            "type": "str",
+            "value": "USD"
+          }
+        ]
+      },
+      "name": "placeholders/string_low_cardinality_returns_constant/currency_code-USD",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "<masked>"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "currency_code",
+        "values": [
+          {
+            "type": "str",
+            "value": "EUR"
+          }
+        ]
+      },
+      "name": "placeholders/string_low_cardinality_returns_constant/currency_code-EUR",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "<masked>"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "country_code",
+        "values": [
+          {
+            "type": "str",
+            "value": "US"
+          }
+        ]
+      },
+      "name": "placeholders/string_low_cardinality_returns_constant/country_code-US",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "<masked>"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "country_code",
+        "values": [
+          {
+            "type": "str",
+            "value": "DE"
+          }
+        ]
+      },
+      "name": "placeholders/string_low_cardinality_returns_constant/country_code-DE",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "bool",
+            "value": false
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "email",
+        "values": [
+          {
+            "type": "bool",
+            "value": true
+          }
+        ]
+      },
+      "name": "placeholders/bool_returns_false_with_salt/email",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "bool",
+            "value": false
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "uuid",
+        "values": [
+          {
+            "type": "bool",
+            "value": false
+          }
+        ]
+      },
+      "name": "placeholders/bool_returns_false_with_salt/uuid",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "238567360"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "integer_id",
+        "values": [
+          {
+            "type": "str",
+            "value": "42"
+          }
+        ]
+      },
+      "name": "placeholders/integer_id_on_string_returns_digit_string",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "809219344"
+          },
+          {
+            "text": "809219344",
+            "type": "int"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "integer_id",
+        "values": [
+          {
+            "type": "str",
+            "value": "7"
+          },
+          {
+            "text": "7",
+            "type": "int"
+          }
+        ]
+      },
+      "name": "placeholders/integer_id_on_string_differs_from_int",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "0",
+            "type": "int"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "integer_id",
+        "values": [
+          {
+            "text": "3.14",
+            "type": "float"
+          }
+        ]
+      },
+      "name": "placeholders/integer_id_on_float_returns_zero",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "0",
+            "type": "int"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "iso8601",
+        "values": [
+          {
+            "text": "1234567890",
+            "type": "int"
+          }
+        ]
+      },
+      "name": "placeholders/iso8601_on_int_returns_zero",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "0",
+            "type": "int"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "uuid",
+        "values": [
+          {
+            "text": "42",
+            "type": "int"
+          }
+        ]
+      },
+      "name": "placeholders/uuid_on_int_returns_zero",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "0",
+            "type": "int"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "email",
+        "values": [
+          {
+            "text": "100",
+            "type": "int"
+          }
+        ]
+      },
+      "name": "placeholders/email_on_int_returns_zero",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "0",
+            "type": "int"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "email",
+        "values": [
+          {
+            "text": "3.14",
+            "type": "float"
+          }
+        ]
+      },
+      "name": "placeholders/email_on_float_returns_zero",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "0",
+            "type": "int"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "url",
+        "values": [
+          {
+            "text": "999",
+            "type": "int"
+          }
+        ]
+      },
+      "name": "placeholders/url_on_int_returns_zero",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "0",
+            "type": "int"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "iban",
+        "values": [
+          {
+            "text": "42",
+            "type": "int"
+          }
+        ]
+      },
+      "name": "placeholders/iban_on_int_returns_zero",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "0",
+            "type": "int"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "opaque_token",
+        "values": [
+          {
+            "text": "55",
+            "type": "int"
+          }
+        ]
+      },
+      "name": "placeholders/opaque_token_on_int_returns_zero",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "bool",
+            "value": false
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "decimal_amount",
+        "values": [
+          {
+            "type": "bool",
+            "value": true
+          }
+        ]
+      },
+      "name": "placeholders/decimal_amount_on_bool_returns_false",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "text": "0",
+            "type": "int"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "free_text",
+        "values": [
+          {
+            "text": "42",
+            "type": "int"
+          }
+        ]
+      },
+      "name": "placeholders/free_text_on_int_returns_zero",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "bbb1ba0f@acme.stub.invalid"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": "acme.stub.invalid",
+        "salt": "test-salt-value-1234",
+        "semantic_type": "email",
+        "values": [
+          {
+            "type": "str",
+            "value": "user@real.com"
+          }
+        ]
+      },
+      "name": "placeholders/custom_domain_applied",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "bbb1ba0f@stub.invalid"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": null,
+        "salt": "test-salt-value-1234",
+        "semantic_type": "email",
+        "values": [
+          {
+            "type": "str",
+            "value": "user@real.com"
+          }
+        ]
+      },
+      "name": "placeholders/none_domain_falls_back_to_default",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "bbb1ba0f@a.stub.invalid"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": "a.stub.invalid",
+        "salt": "test-salt-value-1234",
+        "semantic_type": "email",
+        "values": [
+          {
+            "type": "str",
+            "value": "user@real.com"
+          }
+        ]
+      },
+      "name": "placeholders/different_domains_give_different_addresses/a",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "outputs": [
+          {
+            "type": "str",
+            "value": "bbb1ba0f@b.stub.invalid"
+          }
+        ],
+        "salt_key_hex": "746573742d73616c742d76616c75652d31323334"
+      },
+      "input": {
+        "email_domain": "b.stub.invalid",
+        "salt": "test-salt-value-1234",
+        "semantic_type": "email",
+        "values": [
+          {
+            "type": "str",
+            "value": "user@real.com"
+          }
+        ]
+      },
+      "name": "placeholders/different_domains_give_different_addresses/b",
+      "op": "placeholder"
+    },
+    {
+      "expected": {
+        "body": "{\"email\": \"825d7604@stub.invalid\"}",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "{\"email\": \"alice@example.com\"}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "mask",
+            "path": "body.email",
+            "type": "email"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": "integration-salt"
+      },
+      "name": "placeholders/email_placeholder_in_body",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"email\": \"825d7604@proj.stub.invalid\"}",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "{\"email\": \"alice@example.com\"}",
+        "content_type": "application/json",
+        "email_domain": "proj.stub.invalid",
+        "field_rules": [
+          {
+            "action": "mask",
+            "path": "body.email",
+            "type": "email"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": "integration-salt"
+      },
+      "name": "placeholders/email_placeholder_uses_passed_domain",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"request_id\": \"47f9dcaf-bfd8-4f30-bd5b-d5a245bddf98\"}",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "{\"request_id\": \"550e8400-e29b-41d4-a716-446655440000\"}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "mask",
+            "path": "body.request_id",
+            "type": "uuid"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": "integration-salt"
+      },
+      "name": "placeholders/uuid_placeholder_in_body",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"email\": \"<masked>\"}",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "{\"email\": \"alice@example.com\"}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "mask",
+            "path": "body.email",
+            "type": "email"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "placeholders/no_salt_gives_constant",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"id\": \"879019183\"}",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "{\"id\": \"ch_3Nk...\"}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "mask",
+            "path": "body.id",
+            "type": "integer_id"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": "integration-salt"
+      },
+      "name": "placeholders/integer_id_hint_on_string_stays_string",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"created_at\": \"2008-07-22T04:31:01+00:00\"}",
+        "headers": {}
+      },
+      "input": {
+        "body": "{\"created_at\": \"2023-06-01T12:00:00Z\"}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "mask",
+            "path": "resp.created_at",
+            "type": "iso8601"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "resp_status": null,
+        "salt": "integration-salt"
+      },
+      "name": "placeholders/iso8601_placeholder_in_resp_body",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"user_id\": \"d515e82fff09a650263d288ea97780f5\"}",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "{\"user_id\": \"usr_abc123\"}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "mask",
+            "path": "body.user_id",
+            "type": "opaque_token"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": "stable-salt"
+      },
+      "name": "placeholders/determinism_across_two_calls",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"secret\": \"<masked>\"}",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "{\"secret\": \"super-secret-value\"}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "mask",
+            "path": "body.secret"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": "any-salt"
+      },
+      "name": "placeholders/rule_without_type_still_uses_constant",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [
+          [
+            200,
+            "created_at"
+          ]
+        ],
+        "query_mask_types": {},
+        "resp_mask_types": {
+          "created_at": "iso8601"
+        }
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "mask",
+            "path": "resp:200.created_at",
+            "type": "iso8601"
+          }
+        ]
+      },
+      "name": "placeholders/status_scoped_mask_rule_with_type/compiled",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"created_at\": \"2008-07-22T04:31:01+00:00\"}",
+        "headers": {}
+      },
+      "input": {
+        "body": "{\"created_at\": \"2023-06-01T12:00:00Z\"}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "mask",
+            "path": "resp:200.created_at",
+            "type": "iso8601"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "resp_status": 200,
+        "salt": "integration-salt"
+      },
+      "name": "placeholders/status_scoped_mask_rule_with_type/applied",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "label": "uuid"
+      },
+      "input": {
+        "json": "\"550e8400-e29b-41d4-a716-446655440000\""
+      },
+      "name": "value_types/uuid_lowercase",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "uuid"
+      },
+      "input": {
+        "json": "\"550E8400-E29B-41D4-A716-446655440000\""
+      },
+      "name": "value_types/uuid_uppercase",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "uuid"
+      },
+      "input": {
+        "json": "\"f47ac10b-58cc-4372-a567-0e02b2c3d479\""
+      },
+      "name": "value_types/uuid_beats_free_text",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "iso8601"
+      },
+      "input": {
+        "json": "\"2024-03-15\""
+      },
+      "name": "value_types/iso8601_date",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "iso8601"
+      },
+      "input": {
+        "json": "\"2024-03-15T12:34:56Z\""
+      },
+      "name": "value_types/iso8601_datetime_t",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "iso8601"
+      },
+      "input": {
+        "json": "\"2024-03-15 12:34:56\""
+      },
+      "name": "value_types/iso8601_datetime_space",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "email"
+      },
+      "input": {
+        "json": "\"user@example.com\""
+      },
+      "name": "value_types/email",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "email"
+      },
+      "input": {
+        "json": "\"user+tag@sub.example.org\""
+      },
+      "name": "value_types/email_plus",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "e164"
+      },
+      "input": {
+        "json": "\"+441234567890\""
+      },
+      "name": "value_types/e164",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "e164"
+      },
+      "input": {
+        "json": "\"+1234567\""
+      },
+      "name": "value_types/e164_min_digits",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "free_text"
+      },
+      "input": {
+        "json": "\"+12345\""
+      },
+      "name": "value_types/e164_too_short",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "iban"
+      },
+      "input": {
+        "json": "\"GB29NWBK60161331926819\""
+      },
+      "name": "value_types/iban",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "iban"
+      },
+      "input": {
+        "json": "\"DE89370400440532013000\""
+      },
+      "name": "value_types/iban_de",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "url"
+      },
+      "input": {
+        "json": "\"https://example.com/path?q=1\""
+      },
+      "name": "value_types/url_https",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "url"
+      },
+      "input": {
+        "json": "\"http://api.example.com/v1/users\""
+      },
+      "name": "value_types/url_http",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "currency_code"
+      },
+      "input": {
+        "json": "\"EUR\""
+      },
+      "name": "value_types/currency_code",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "currency_code"
+      },
+      "input": {
+        "json": "\"USD\""
+      },
+      "name": "value_types/currency_code_usd",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "country_code"
+      },
+      "input": {
+        "json": "\"NL\""
+      },
+      "name": "value_types/country_code",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "country_code"
+      },
+      "input": {
+        "json": "\"US\""
+      },
+      "name": "value_types/country_code_us",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "currency_code"
+      },
+      "input": {
+        "json": "\"GBP\""
+      },
+      "name": "value_types/three_letters_is_currency_not_country",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "decimal_amount"
+      },
+      "input": {
+        "json": "\"19.99\""
+      },
+      "name": "value_types/decimal_string",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "decimal_amount"
+      },
+      "input": {
+        "json": "\"-5.00\""
+      },
+      "name": "value_types/decimal_negative",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "free_text"
+      },
+      "input": {
+        "json": "\"sk_live_abc1234xyz\""
+      },
+      "name": "value_types/opaque_token_not_emitted_for_api_key",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "free_text"
+      },
+      "input": {
+        "json": "\"a1b2c3d4e5\""
+      },
+      "name": "value_types/opaque_token_not_emitted_for_mixed_alphanumeric",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "free_text"
+      },
+      "input": {
+        "json": "\"ch_3Nk9BQ2eZvKYlo2C1b2XNpO8\""
+      },
+      "name": "value_types/opaque_token_not_emitted_for_stripe_id",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "free_text"
+      },
+      "input": {
+        "json": "\"hello world\""
+      },
+      "name": "value_types/free_text_with_spaces",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "free_text"
+      },
+      "input": {
+        "json": "\"pending\""
+      },
+      "name": "value_types/free_text_short",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "free_text"
+      },
+      "input": {
+        "json": "\"pendingpayment\""
+      },
+      "name": "value_types/free_text_all_alpha_long",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "free_text"
+      },
+      "input": {
+        "json": "\"active\""
+      },
+      "name": "value_types/free_text_label",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "integer_id"
+      },
+      "input": {
+        "json": "\"42\""
+      },
+      "name": "value_types/integer_string_classifies_integer_id",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "integer_id"
+      },
+      "input": {
+        "json": "\"1000000\""
+      },
+      "name": "value_types/integer_string_large",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "integer_id"
+      },
+      "input": {
+        "json": "\"0\""
+      },
+      "name": "value_types/integer_string_zero",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "integer_id"
+      },
+      "input": {
+        "json": "\"-5\""
+      },
+      "name": "value_types/integer_string_negative",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "free_text"
+      },
+      "input": {
+        "json": "\"EU20240001\""
+      },
+      "name": "value_types/iban_too_short_rejected",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "free_text"
+      },
+      "input": {
+        "json": "\"GB12BATCH01\""
+      },
+      "name": "value_types/iban_batch_ref_rejected",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "free_text"
+      },
+      "input": {
+        "json": "\"US24XLBLUE\""
+      },
+      "name": "value_types/iban_short_code_rejected",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "iban"
+      },
+      "input": {
+        "json": "\"GB29NWBK60161331926819\""
+      },
+      "name": "value_types/real_iban_gb_still_matches",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "iban"
+      },
+      "input": {
+        "json": "\"NO9386011117947\""
+      },
+      "name": "value_types/shortest_real_iban_matches",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "iban"
+      },
+      "input": {
+        "json": "\"MT84MALT011000012345MTLCAST001S\""
+      },
+      "name": "value_types/longest_real_iban_matches",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "uuid"
+      },
+      "input": {
+        "json": "\"550e8400-e29b-41d4-a716-446655440000\""
+      },
+      "name": "value_types/uuid_not_free_text",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "email"
+      },
+      "input": {
+        "json": "\"a@b.co\""
+      },
+      "name": "value_types/email_not_free_text",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "integer_id"
+      },
+      "input": {
+        "json": "\"42\""
+      },
+      "name": "value_types/integer_string_before_decimal/int",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "decimal_amount"
+      },
+      "input": {
+        "json": "\"42.0\""
+      },
+      "name": "value_types/integer_string_before_decimal/decimal",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "decimal_amount"
+      },
+      "input": {
+        "json": "1.99"
+      },
+      "name": "value_types/decimal_float",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "integer_id"
+      },
+      "input": {
+        "json": "42"
+      },
+      "name": "value_types/integer",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "integer_id"
+      },
+      "input": {
+        "json": "0"
+      },
+      "name": "value_types/integer_zero",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": "integer_id"
+      },
+      "input": {
+        "json": "9999999"
+      },
+      "name": "value_types/integer_large",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": null
+      },
+      "input": {
+        "json": "true"
+      },
+      "name": "value_types/bool_true_omitted",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": null
+      },
+      "input": {
+        "json": "false"
+      },
+      "name": "value_types/bool_false_omitted",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": null
+      },
+      "input": {
+        "json": "null"
+      },
+      "name": "value_types/none_omitted",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": null
+      },
+      "input": {
+        "json": "{\"a\": 1}"
+      },
+      "name": "value_types/dict_omitted",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "label": null
+      },
+      "input": {
+        "json": "[1, 2]"
+      },
+      "name": "value_types/list_omitted",
+      "op": "classify_scalar"
+    },
+    {
+      "expected": {
+        "value_types": {
+          "email": "email",
+          "id": "integer_id"
+        }
+      },
+      "input": {
+        "body": "{\"id\": 42, \"email\": \"a@b.com\", \"active\": true}",
+        "content_type": "application/json"
+      },
+      "name": "value_types/flat_json",
+      "op": "extract_value_types"
+    },
+    {
+      "expected": {
+        "value_types": {
+          "user.id": "integer_id",
+          "user.name": "free_text"
+        }
+      },
+      "input": {
+        "body": "{\"user\": {\"id\": 7, \"name\": \"Alice\"}}",
+        "content_type": "application/json"
+      },
+      "name": "value_types/nested_json",
+      "op": "extract_value_types"
+    },
+    {
+      "expected": {
+        "value_types": {
+          "items.[].price": "decimal_amount",
+          "items.[].sku": "free_text"
+        }
+      },
+      "input": {
+        "body": "{\"items\": [{\"price\": 9.99, \"sku\": \"ITEM1234AB\"}]}",
+        "content_type": "application/json"
+      },
+      "name": "value_types/array_of_objects",
+      "op": "extract_value_types"
+    },
+    {
+      "expected": {
+        "value_types": {
+          "tags.[]": "free_text"
+        }
+      },
+      "input": {
+        "body": "{\"tags\": [\"active\", \"pending\"]}",
+        "content_type": "application/json"
+      },
+      "name": "value_types/scalar_array",
+      "op": "extract_value_types"
+    },
+    {
+      "expected": {
+        "value_types": {
+          "[].id": "integer_id"
+        }
+      },
+      "input": {
+        "body": "[{\"id\": 1}, {\"id\": 2}]",
+        "content_type": "application/json"
+      },
+      "name": "value_types/root_array",
+      "op": "extract_value_types"
+    },
+    {
+      "expected": {
+        "value_types": {
+          "count": "integer_id"
+        }
+      },
+      "input": {
+        "body": "{\"flag\": true, \"missing\": null, \"count\": 5}",
+        "content_type": "application/json"
+      },
+      "name": "value_types/booleans_and_nulls_omitted",
+      "op": "extract_value_types"
+    },
+    {
+      "expected": {
+        "value_types": {
+          "amount": "decimal_amount",
+          "currency": "currency_code",
+          "note": "free_text"
+        }
+      },
+      "input": {
+        "body": "amount=19.99&currency=EUR&note=hello+world",
+        "content_type": "application/x-www-form-urlencoded"
+      },
+      "name": "value_types/form_encoded",
+      "op": "extract_value_types"
+    },
+    {
+      "expected": {
+        "value_types": {}
+      },
+      "input": {
+        "body": "{not valid json}",
+        "content_type": "application/json"
+      },
+      "name": "value_types/malformed_body_no_raise",
+      "op": "extract_value_types"
+    },
+    {
+      "expected": {
+        "value_types": {}
+      },
+      "input": {
+        "body": "",
+        "content_type": "application/json"
+      },
+      "name": "value_types/empty_body",
+      "op": "extract_value_types"
+    },
+    {
+      "expected": {
+        "value_types": {}
+      },
+      "input": {
+        "body": "   ",
+        "content_type": "application/json"
+      },
+      "name": "value_types/whitespace_only_body",
+      "op": "extract_value_types"
+    },
+    {
+      "expected": {
+        "value_types": {}
+      },
+      "input": {
+        "body": "hello world",
+        "content_type": "text/plain"
+      },
+      "name": "value_types/non_json_content_type_no_raise",
+      "op": "extract_value_types"
+    }
+  ],
+  "description": "Format-preserving placeholders, their use through field rules, and the observed value types. Shared vectors: the Python SDK is the source of truth and any other SDK runs the same file and must reproduce every expected value exactly. Each case is {name, op, input, expected}; op names one of the operations below. JSON bodies are source text, masked bodies are Python json.dumps text, and form and query output is urlencode(doseq=True) text; compare them as strings. A string of many equal characters is written {\"$repeat\": \"a\", \"times\": 65537}, and a string made of such parts {\"$concat\": [...]}; expand them before use.\nOperations used in this file:\n- placeholder: input {semantic_type, values, salt, email_domain}; values are typed scalars {type: str|int|float|bool|none, value or text}, with text the Python repr of a float and the decimal digits of an int; the key is the salt string as UTF-8 truncated to 64 bytes (null or empty means no key). Each value is generated twice and the two results must be equal. expected {salt_key_hex, outputs} with typed outputs.\n- apply_field_rules: input {field_rules, body, headers, query, content_type, project_defaults, salt, email_domain}; compile the field rules, then mask a request. project_defaults is null or {field_masks, regex_masks}, compiled as the project's extra rules. salt is the STUBSMITH_MASK_SALT string (null means unset). email_domain null means the default. expected {body, headers, query}, compared as exact text.\n- apply_resp_field_rules: same input as apply_field_rules without query, plus resp_status (an integer or null); expected {body, headers}.\n- compile_field_rules: input {field_rules}; expected the compiled sets as sorted lists: keep_body, keep_query, keep_header, keep_resp, keep_resp_header, keep_resp_status, mask_resp_status, keep_resp_header_status, mask_resp_header_status (the last four as [status, path] pairs sorted by status then path), and the objects body_mask_types, query_mask_types, resp_mask_types.\n- classify_scalar: input {json}: JSON source text of one value, parsed as Python json.loads does; expected {label} (null for no label).\n- extract_value_types: input {body, content_type}; expected {value_types}.",
+  "source": "stubsmith.privacy.placeholders, field_rules, fingerprint (via tests/shared_vector_ops.py)"
+}

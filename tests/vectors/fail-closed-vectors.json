@@ -1,0 +1,2937 @@
+{
+  "cases": [
+    {
+      "expected": {
+        "body": "username=%3Cmasked%3E&password=%3Cmasked%3E",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "username=alice&password=s3cr3t",
+        "content_type": "application/x-www-form-urlencoded",
+        "email_domain": null,
+        "field_rules": [],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/form_encoded_body_fail_closed",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "raw text",
+        "content_type": "text/plain",
+        "email_domain": null,
+        "field_rules": [],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/non_json_body_becomes_masked",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "cache": {
+          "cursor": "0",
+          "first_sync_done": false,
+          "project_defaults": null
+        },
+        "payload": {
+          "_raw_path": "/v1/orders",
+          "classifier_spec_version": 1,
+          "domain": "api.example.com",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "key_paths": [
+            "user",
+            "user.email",
+            "amount"
+          ],
+          "method": "POST",
+          "novel": true,
+          "path": "/v1/orders",
+          "path_template": "/v1/orders",
+          "query_names": [],
+          "req_body": "{\"user\": {\"email\": \"<masked>\"}, \"amount\": 0}",
+          "req_fingerprint": "5a9e3858d3dc8ce6",
+          "req_header_names": [
+            "content-type"
+          ],
+          "req_value_types": {
+            "amount": "integer_id",
+            "user.email": "email"
+          },
+          "resp_body": "{\"id\": 0, \"status\": \"<masked>\"}",
+          "resp_fingerprint": "2008628fda52fa0e611",
+          "resp_header_names": [
+            "content-type"
+          ],
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_key_paths": [
+            "id",
+            "status"
+          ],
+          "resp_value_types": {
+            "id": "integer_id",
+            "status": "free_text"
+          },
+          "sdk_masked": true,
+          "sdk_rule_version": "0",
+          "status": 200
+        }
+      },
+      "input": {
+        "polls": [],
+        "request": {
+          "method": "POST",
+          "req_body": "{\"user\": {\"email\": \"alice@example.com\"}, \"amount\": 99}",
+          "req_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_body": "{\"id\": 1, \"status\": \"ok\"}",
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_status": 200,
+          "url": "https://api.example.com/v1/orders"
+        },
+        "salt": null
+      },
+      "name": "pipeline/novel_flag_when_fingerprint_unknown",
+      "op": "pipeline_process"
+    },
+    {
+      "expected": {
+        "cache": {
+          "cursor": "0",
+          "first_sync_done": false,
+          "project_defaults": null
+        },
+        "payload": {
+          "_raw_path": "/v1/orders",
+          "classifier_spec_version": 1,
+          "domain": "api.example.com",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "key_paths": [
+            "password",
+            "count"
+          ],
+          "method": "POST",
+          "novel": true,
+          "path": "/v1/orders",
+          "path_template": "/v1/orders",
+          "query_names": [],
+          "req_body": "{\"password\": \"<masked>\", \"count\": 0}",
+          "req_fingerprint": "1eee239578c44002",
+          "req_header_names": [
+            "content-type"
+          ],
+          "req_value_types": {
+            "count": "integer_id",
+            "password": "free_text"
+          },
+          "resp_body": "{\"id\": 0, \"status\": \"<masked>\"}",
+          "resp_fingerprint": "2008628fda52fa0e611",
+          "resp_header_names": [
+            "content-type"
+          ],
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_key_paths": [
+            "id",
+            "status"
+          ],
+          "resp_value_types": {
+            "id": "integer_id",
+            "status": "free_text"
+          },
+          "sdk_masked": true,
+          "sdk_rule_version": "0",
+          "status": 200
+        }
+      },
+      "input": {
+        "polls": [],
+        "request": {
+          "method": "POST",
+          "req_body": "{\"password\": \"s3cr3t\", \"count\": 5}",
+          "req_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_body": "{\"id\": 1, \"status\": \"ok\"}",
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_status": 200,
+          "url": "https://api.example.com/v1/orders"
+        },
+        "salt": null
+      },
+      "name": "pipeline/body_is_fully_masked_on_novel",
+      "op": "pipeline_process"
+    },
+    {
+      "expected": {
+        "cache": {
+          "cursor": "0",
+          "first_sync_done": false,
+          "project_defaults": null
+        },
+        "payload": {
+          "_raw_path": "/v1/orders",
+          "classifier_spec_version": 1,
+          "domain": "api.example.com",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "key_paths": [
+            "user",
+            "user.email",
+            "amount"
+          ],
+          "method": "POST",
+          "novel": true,
+          "path": "/v1/orders",
+          "path_template": "/v1/orders",
+          "query_names": [],
+          "req_body": "{\"user\": {\"email\": \"<masked>\"}, \"amount\": 0}",
+          "req_fingerprint": "5a9e3858d3dc8ce6",
+          "req_header_names": [
+            "content-type"
+          ],
+          "req_value_types": {
+            "amount": "integer_id",
+            "user.email": "email"
+          },
+          "resp_body": "{\"id\": 0, \"email\": \"<masked>\"}",
+          "resp_fingerprint": "2001daa05787f23d757",
+          "resp_header_names": [
+            "content-type"
+          ],
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_key_paths": [
+            "id",
+            "email"
+          ],
+          "resp_value_types": {
+            "email": "email",
+            "id": "integer_id"
+          },
+          "sdk_masked": true,
+          "sdk_rule_version": "0",
+          "status": 200
+        }
+      },
+      "input": {
+        "polls": [],
+        "request": {
+          "method": "POST",
+          "req_body": "{\"user\": {\"email\": \"alice@example.com\"}, \"amount\": 99}",
+          "req_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_body": "{\"id\": 7, \"email\": \"user@example.com\"}",
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_status": 200,
+          "url": "https://api.example.com/v1/orders"
+        },
+        "salt": null
+      },
+      "name": "pipeline/resp_novel_fingerprint_fully_masked",
+      "op": "pipeline_process"
+    },
+    {
+      "expected": {
+        "cache": {
+          "cursor": "0",
+          "first_sync_done": false,
+          "project_defaults": null
+        },
+        "payload": {
+          "_raw_path": "/v1/orders",
+          "classifier_spec_version": 1,
+          "domain": "api.example.com",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "key_paths": [
+            "user",
+            "user.email",
+            "amount"
+          ],
+          "method": "POST",
+          "novel": true,
+          "path": "/v1/orders",
+          "path_template": "/v1/orders",
+          "query_names": [],
+          "req_body": "{\"user\": {\"email\": \"<masked>\"}, \"amount\": 0}",
+          "req_fingerprint": "5a9e3858d3dc8ce6",
+          "req_header_names": [
+            "content-type"
+          ],
+          "req_value_types": {
+            "amount": "integer_id",
+            "user.email": "email"
+          },
+          "resp_body": "{\"id\": 0, \"status\": \"<masked>\"}",
+          "resp_fingerprint": "2008628fda52fa0e611",
+          "resp_header_names": [
+            "content-type",
+            "x-secret"
+          ],
+          "resp_headers": {
+            "content-type": "application/json",
+            "x-secret": "<masked>"
+          },
+          "resp_key_paths": [
+            "id",
+            "status"
+          ],
+          "resp_value_types": {
+            "id": "integer_id",
+            "status": "free_text"
+          },
+          "sdk_masked": true,
+          "sdk_rule_version": "0",
+          "status": 200
+        }
+      },
+      "input": {
+        "polls": [],
+        "request": {
+          "method": "POST",
+          "req_body": "{\"user\": {\"email\": \"alice@example.com\"}, \"amount\": 99}",
+          "req_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_body": "{\"id\": 1, \"status\": \"ok\"}",
+          "resp_headers": {
+            "content-type": "application/json",
+            "x-secret": "tok"
+          },
+          "resp_status": 200,
+          "url": "https://api.example.com/v1/orders"
+        },
+        "salt": null
+      },
+      "name": "pipeline/novel_fingerprint_resp_headers_fully_masked",
+      "op": "pipeline_process"
+    },
+    {
+      "expected": {
+        "cache": {
+          "cursor": "1",
+          "first_sync_done": true,
+          "project_defaults": {
+            "field_masks": [],
+            "regex_count": 0,
+            "unusable": true
+          }
+        },
+        "payload": {
+          "classifier_spec_version": 1,
+          "domain": "api.example.com",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "key_paths": [
+            "note",
+            "count"
+          ],
+          "method": "POST",
+          "novel": false,
+          "path": "/v1/orders",
+          "path_template": "/v1/orders",
+          "query_names": [],
+          "req_body": "{\"note\": \"<masked>\", \"count\": 3}",
+          "req_fingerprint": "5754ed07806e45c9",
+          "req_header_names": [
+            "content-type"
+          ],
+          "req_value_types": {
+            "count": "integer_id",
+            "note": "free_text"
+          },
+          "resp_body": "{\"id\": 0, \"status\": \"<masked>\"}",
+          "resp_fingerprint": "2008628fda52fa0e611",
+          "resp_header_names": [
+            "content-type"
+          ],
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_key_paths": [
+            "id",
+            "status"
+          ],
+          "resp_value_types": {
+            "id": "integer_id",
+            "status": "free_text"
+          },
+          "sdk_masked": true,
+          "sdk_rule_version": "1",
+          "status": 200
+        }
+      },
+      "input": {
+        "polls": [
+          {
+            "body": {
+              "cursor": "1",
+              "ok": true,
+              "path_templates": [],
+              "project_defaults": {
+                "field_masks": [],
+                "regex_masks": [
+                  {
+                    "pattern": "[[["
+                  }
+                ]
+              },
+              "rules": [
+                {
+                  "field_rules": [
+                    {
+                      "action": "keep",
+                      "path": "body.note"
+                    },
+                    {
+                      "action": "keep",
+                      "path": "body.count"
+                    }
+                  ],
+                  "fingerprint": "5754ed07806e45c9",
+                  "request_type": {
+                    "domain": "api.example.com",
+                    "method": "POST",
+                    "path_template": "/v1/orders"
+                  },
+                  "seq": 1
+                }
+              ]
+            },
+            "status": 200
+          }
+        ],
+        "request": {
+          "method": "POST",
+          "req_body": "{\"note\": \"hello\", \"count\": 3}",
+          "req_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_body": "{\"id\": 1, \"status\": \"ok\"}",
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_status": 200,
+          "url": "https://api.example.com/v1/orders"
+        },
+        "salt": null
+      },
+      "name": "pipeline/uncompilable_project_regex_masks_kept_strings",
+      "op": "pipeline_process"
+    },
+    {
+      "expected": {
+        "cache": {
+          "cursor": "99",
+          "first_sync_done": true,
+          "project_defaults": {
+            "field_masks": [],
+            "regex_count": 0,
+            "unusable": true
+          }
+        },
+        "payload": {
+          "classifier_spec_version": 1,
+          "domain": "api.example.com",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "key_paths": [
+            "amount"
+          ],
+          "method": "POST",
+          "novel": false,
+          "path": "/v1/orders",
+          "path_template": "/v1/orders",
+          "query_names": [],
+          "req_body": "{\"amount\": 50}",
+          "req_fingerprint": "db89edaadf8df7b2",
+          "req_header_names": [
+            "content-type"
+          ],
+          "req_value_types": {
+            "amount": "integer_id"
+          },
+          "resp_body": "{\"id\": 0, \"status\": \"<masked>\"}",
+          "resp_fingerprint": "2008628fda52fa0e611",
+          "resp_header_names": [
+            "content-type"
+          ],
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_key_paths": [
+            "id",
+            "status"
+          ],
+          "resp_value_types": {
+            "id": "integer_id",
+            "status": "free_text"
+          },
+          "sdk_masked": true,
+          "sdk_rule_version": "99",
+          "status": 200
+        }
+      },
+      "input": {
+        "polls": [
+          {
+            "body": {
+              "cursor": "99",
+              "ok": true,
+              "path_templates": [],
+              "project_defaults": {
+                "field_masks": [
+                  1,
+                  null,
+                  true
+                ],
+                "regex_masks": [
+                  {
+                    "pattern": null
+                  }
+                ]
+              },
+              "rules": [
+                {
+                  "field_rules": [
+                    {
+                      "action": "keep",
+                      "path": "body.amount"
+                    }
+                  ],
+                  "fingerprint": "db89edaadf8df7b2",
+                  "request_type": {
+                    "domain": "api.example.com",
+                    "method": "POST",
+                    "path_template": "/v1/orders"
+                  },
+                  "seq": 1
+                }
+              ]
+            },
+            "status": 200
+          }
+        ],
+        "request": {
+          "method": "POST",
+          "req_body": "{\"amount\": 50}",
+          "req_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_body": "{\"id\": 1, \"status\": \"ok\"}",
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_status": 200,
+          "url": "https://api.example.com/v1/orders"
+        },
+        "salt": null
+      },
+      "name": "pipeline/malformed_project_defaults_poll_still_lands_cursor_and_rules",
+      "op": "pipeline_process"
+    },
+    {
+      "expected": {
+        "cache": {
+          "cursor": "1",
+          "first_sync_done": true,
+          "project_defaults": {
+            "field_masks": [],
+            "regex_count": 0,
+            "unusable": true
+          }
+        },
+        "payload": {
+          "classifier_spec_version": 1,
+          "domain": "api.example.com",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "key_paths": [
+            "note",
+            "n"
+          ],
+          "method": "POST",
+          "novel": false,
+          "path": "/v1/orders",
+          "path_template": "/v1/orders",
+          "query_names": [],
+          "req_body": "{\"note\": \"<masked>\", \"n\": 1}",
+          "req_fingerprint": "356e5165c90033a5",
+          "req_header_names": [
+            "content-type"
+          ],
+          "req_value_types": {
+            "n": "integer_id",
+            "note": "free_text"
+          },
+          "resp_body": "{\"id\": 0, \"status\": \"<masked>\"}",
+          "resp_fingerprint": "2008628fda52fa0e611",
+          "resp_header_names": [
+            "content-type"
+          ],
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_key_paths": [
+            "id",
+            "status"
+          ],
+          "resp_value_types": {
+            "id": "integer_id",
+            "status": "free_text"
+          },
+          "sdk_masked": true,
+          "sdk_rule_version": "1",
+          "status": 200
+        }
+      },
+      "input": {
+        "polls": [
+          {
+            "body": {
+              "cursor": "1",
+              "ok": true,
+              "path_templates": [],
+              "project_defaults": [],
+              "rules": [
+                {
+                  "field_rules": [
+                    {
+                      "action": "keep",
+                      "path": "body.note"
+                    },
+                    {
+                      "action": "keep",
+                      "path": "body.n"
+                    }
+                  ],
+                  "fingerprint": "356e5165c90033a5",
+                  "request_type": {
+                    "domain": "api.example.com",
+                    "method": "POST",
+                    "path_template": "/v1/orders"
+                  },
+                  "seq": 1
+                }
+              ]
+            },
+            "status": 200
+          }
+        ],
+        "request": {
+          "method": "POST",
+          "req_body": "{\"note\": \"hello\", \"n\": 1}",
+          "req_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_body": "{\"id\": 1, \"status\": \"ok\"}",
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_status": 200,
+          "url": "https://api.example.com/v1/orders"
+        },
+        "salt": null
+      },
+      "name": "pipeline/project_defaults_not_an_object_masks_kept_strings/list",
+      "op": "pipeline_process"
+    },
+    {
+      "expected": {
+        "cache": {
+          "cursor": "1",
+          "first_sync_done": true,
+          "project_defaults": {
+            "field_masks": [],
+            "regex_count": 0,
+            "unusable": true
+          }
+        },
+        "payload": {
+          "classifier_spec_version": 1,
+          "domain": "api.example.com",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "key_paths": [
+            "note",
+            "n"
+          ],
+          "method": "POST",
+          "novel": false,
+          "path": "/v1/orders",
+          "path_template": "/v1/orders",
+          "query_names": [],
+          "req_body": "{\"note\": \"<masked>\", \"n\": 1}",
+          "req_fingerprint": "356e5165c90033a5",
+          "req_header_names": [
+            "content-type"
+          ],
+          "req_value_types": {
+            "n": "integer_id",
+            "note": "free_text"
+          },
+          "resp_body": "{\"id\": 0, \"status\": \"<masked>\"}",
+          "resp_fingerprint": "2008628fda52fa0e611",
+          "resp_header_names": [
+            "content-type"
+          ],
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_key_paths": [
+            "id",
+            "status"
+          ],
+          "resp_value_types": {
+            "id": "integer_id",
+            "status": "free_text"
+          },
+          "sdk_masked": true,
+          "sdk_rule_version": "1",
+          "status": 200
+        }
+      },
+      "input": {
+        "polls": [
+          {
+            "body": {
+              "cursor": "1",
+              "ok": true,
+              "path_templates": [],
+              "project_defaults": "rules",
+              "rules": [
+                {
+                  "field_rules": [
+                    {
+                      "action": "keep",
+                      "path": "body.note"
+                    },
+                    {
+                      "action": "keep",
+                      "path": "body.n"
+                    }
+                  ],
+                  "fingerprint": "356e5165c90033a5",
+                  "request_type": {
+                    "domain": "api.example.com",
+                    "method": "POST",
+                    "path_template": "/v1/orders"
+                  },
+                  "seq": 1
+                }
+              ]
+            },
+            "status": 200
+          }
+        ],
+        "request": {
+          "method": "POST",
+          "req_body": "{\"note\": \"hello\", \"n\": 1}",
+          "req_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_body": "{\"id\": 1, \"status\": \"ok\"}",
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_status": 200,
+          "url": "https://api.example.com/v1/orders"
+        },
+        "salt": null
+      },
+      "name": "pipeline/project_defaults_not_an_object_masks_kept_strings/string",
+      "op": "pipeline_process"
+    },
+    {
+      "expected": {
+        "cache": {
+          "cursor": "1",
+          "first_sync_done": true,
+          "project_defaults": {
+            "field_masks": [],
+            "regex_count": 0,
+            "unusable": true
+          }
+        },
+        "payload": {
+          "classifier_spec_version": 1,
+          "domain": "api.example.com",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "key_paths": [
+            "note",
+            "n"
+          ],
+          "method": "POST",
+          "novel": false,
+          "path": "/v1/orders",
+          "path_template": "/v1/orders",
+          "query_names": [],
+          "req_body": "{\"note\": \"<masked>\", \"n\": 1}",
+          "req_fingerprint": "356e5165c90033a5",
+          "req_header_names": [
+            "content-type"
+          ],
+          "req_value_types": {
+            "n": "integer_id",
+            "note": "free_text"
+          },
+          "resp_body": "{\"id\": 0, \"status\": \"<masked>\"}",
+          "resp_fingerprint": "2008628fda52fa0e611",
+          "resp_header_names": [
+            "content-type"
+          ],
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_key_paths": [
+            "id",
+            "status"
+          ],
+          "resp_value_types": {
+            "id": "integer_id",
+            "status": "free_text"
+          },
+          "sdk_masked": true,
+          "sdk_rule_version": "1",
+          "status": 200
+        }
+      },
+      "input": {
+        "polls": [
+          {
+            "body": {
+              "cursor": "1",
+              "ok": true,
+              "path_templates": [],
+              "project_defaults": 5,
+              "rules": [
+                {
+                  "field_rules": [
+                    {
+                      "action": "keep",
+                      "path": "body.note"
+                    },
+                    {
+                      "action": "keep",
+                      "path": "body.n"
+                    }
+                  ],
+                  "fingerprint": "356e5165c90033a5",
+                  "request_type": {
+                    "domain": "api.example.com",
+                    "method": "POST",
+                    "path_template": "/v1/orders"
+                  },
+                  "seq": 1
+                }
+              ]
+            },
+            "status": 200
+          }
+        ],
+        "request": {
+          "method": "POST",
+          "req_body": "{\"note\": \"hello\", \"n\": 1}",
+          "req_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_body": "{\"id\": 1, \"status\": \"ok\"}",
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_status": 200,
+          "url": "https://api.example.com/v1/orders"
+        },
+        "salt": null
+      },
+      "name": "pipeline/project_defaults_not_an_object_masks_kept_strings/number",
+      "op": "pipeline_process"
+    },
+    {
+      "expected": {
+        "cache": {
+          "cursor": "1",
+          "first_sync_done": true,
+          "project_defaults": {
+            "field_masks": [
+              "password"
+            ],
+            "regex_count": 0,
+            "unusable": true
+          }
+        },
+        "payload": {
+          "classifier_spec_version": 1,
+          "domain": "api.example.com",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "key_paths": [
+            "password",
+            "note",
+            "n"
+          ],
+          "method": "POST",
+          "novel": false,
+          "path": "/v1/orders",
+          "path_template": "/v1/orders",
+          "query_names": [],
+          "req_body": "{\"password\": \"<masked>\", \"note\": \"<masked>\", \"n\": 1}",
+          "req_fingerprint": "dd7bb1fbddb29afd",
+          "req_header_names": [
+            "content-type"
+          ],
+          "req_value_types": {
+            "n": "integer_id",
+            "note": "free_text",
+            "password": "free_text"
+          },
+          "resp_body": "{\"id\": 0, \"status\": \"<masked>\"}",
+          "resp_fingerprint": "2008628fda52fa0e611",
+          "resp_header_names": [
+            "content-type"
+          ],
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_key_paths": [
+            "id",
+            "status"
+          ],
+          "resp_value_types": {
+            "id": "integer_id",
+            "status": "free_text"
+          },
+          "sdk_masked": true,
+          "sdk_rule_version": "1",
+          "status": 200
+        }
+      },
+      "input": {
+        "polls": [
+          {
+            "body": {
+              "cursor": "1",
+              "ok": true,
+              "path_templates": [],
+              "project_defaults": {
+                "field_masks": [
+                  "password"
+                ],
+                "regex_masks": [
+                  {
+                    "pattern": 5
+                  }
+                ]
+              },
+              "rules": [
+                {
+                  "field_rules": [
+                    {
+                      "action": "keep",
+                      "path": "body.password"
+                    },
+                    {
+                      "action": "keep",
+                      "path": "body.note"
+                    },
+                    {
+                      "action": "keep",
+                      "path": "body.n"
+                    }
+                  ],
+                  "fingerprint": "dd7bb1fbddb29afd",
+                  "request_type": {
+                    "domain": "api.example.com",
+                    "method": "POST",
+                    "path_template": "/v1/orders"
+                  },
+                  "seq": 1
+                }
+              ]
+            },
+            "status": 200
+          }
+        ],
+        "request": {
+          "method": "POST",
+          "req_body": "{\"password\": \"hunter2\", \"note\": \"hello\", \"n\": 1}",
+          "req_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_body": "{\"id\": 1, \"status\": \"ok\"}",
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_status": 200,
+          "url": "https://api.example.com/v1/orders"
+        },
+        "salt": null
+      },
+      "name": "pipeline/malformed_entry_keeps_the_valid_field_masks",
+      "op": "pipeline_process"
+    },
+    {
+      "expected": {
+        "cache": {
+          "cursor": "0",
+          "first_sync_done": false,
+          "project_defaults": null
+        },
+        "payload": {
+          "_raw_path": "/v1/orders",
+          "classifier_spec_version": 1,
+          "domain": "api.example.com",
+          "headers": {
+            "Authorization": "<masked>",
+            "Content-Type": "application/json",
+            "X-User": "<masked>"
+          },
+          "key_paths": [
+            "user",
+            "user.email",
+            "user.password",
+            "card",
+            "amount",
+            "gift"
+          ],
+          "method": "POST",
+          "novel": true,
+          "path": "/v1/orders?email=%3Cmasked%3E&page=%3Cmasked%3E",
+          "path_template": "/v1/orders",
+          "query_names": [
+            "email",
+            "page"
+          ],
+          "req_body": "{\"user\": {\"email\": \"<masked>\", \"password\": \"<masked>\"}, \"card\": \"<masked>\", \"amount\": 0, \"gift\": false}",
+          "req_fingerprint": "5fbf9b530a1957f7",
+          "req_header_names": [
+            "authorization",
+            "content-type",
+            "x-user"
+          ],
+          "req_value_types": {
+            "amount": "integer_id",
+            "card": "integer_id",
+            "user.email": "email",
+            "user.password": "free_text"
+          },
+          "resp_body": "{\"id\": 0, \"receipt_email\": \"<masked>\"}",
+          "resp_fingerprint": "200d540d78dc7617b25",
+          "resp_header_names": [
+            "content-type",
+            "set-cookie"
+          ],
+          "resp_headers": {
+            "Content-Type": "application/json",
+            "Set-Cookie": "<masked>"
+          },
+          "resp_key_paths": [
+            "id",
+            "receipt_email"
+          ],
+          "resp_value_types": {
+            "id": "integer_id",
+            "receipt_email": "email"
+          },
+          "sdk_masked": true,
+          "sdk_rule_version": "0",
+          "status": 200
+        }
+      },
+      "input": {
+        "polls": [
+          {
+            "body": null,
+            "status": 404
+          }
+        ],
+        "request": {
+          "method": "POST",
+          "req_body": "{\"user\": {\"email\": \"ana@example.com\", \"password\": \"hunter2\"}, \"card\": \"4111111111111111\", \"amount\": 99, \"gift\": true}",
+          "req_headers": {
+            "Authorization": "Bearer tok_dummy_123",
+            "Content-Type": "application/json",
+            "X-User": "ana@example.com"
+          },
+          "resp_body": "{\"id\": 7, \"receipt_email\": \"ana@example.com\"}",
+          "resp_headers": {
+            "Content-Type": "application/json",
+            "Set-Cookie": "s=tok_dummy_123"
+          },
+          "resp_status": 200,
+          "url": "https://api.example.com/v1/orders?email=ana@example.com&page=2"
+        },
+        "salt": null
+      },
+      "name": "pipeline/404_posts_fully_masked_payload",
+      "op": "pipeline_process"
+    },
+    {
+      "expected": {
+        "cache": {
+          "cursor": "0",
+          "first_sync_done": false,
+          "project_defaults": null
+        },
+        "payload": null
+      },
+      "input": {
+        "polls": [
+          {
+            "body": null,
+            "status": 404
+          }
+        ],
+        "request": null,
+        "salt": null
+      },
+      "name": "pipeline/404_does_not_mark_rules_synced",
+      "op": "pipeline_process"
+    },
+    {
+      "expected": {
+        "cache": {
+          "cursor": "1",
+          "first_sync_done": true,
+          "project_defaults": null
+        },
+        "payload": {
+          "classifier_spec_version": 1,
+          "domain": "api.example.com",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "key_paths": [
+            "id"
+          ],
+          "method": "POST",
+          "novel": false,
+          "path": "/v1/orders",
+          "path_template": "/v1/orders",
+          "query_names": [],
+          "req_body": "{\"id\": 5}",
+          "req_fingerprint": "7885e1fa206087ff",
+          "req_header_names": [
+            "content-type"
+          ],
+          "req_value_types": {
+            "id": "integer_id"
+          },
+          "resp_body": "{\"id\": 0, \"status\": \"<masked>\"}",
+          "resp_fingerprint": "2008628fda52fa0e611",
+          "resp_header_names": [
+            "content-type"
+          ],
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_key_paths": [
+            "id",
+            "status"
+          ],
+          "resp_value_types": {
+            "id": "integer_id",
+            "status": "free_text"
+          },
+          "sdk_masked": true,
+          "sdk_rule_version": "1",
+          "status": 200
+        }
+      },
+      "input": {
+        "polls": [
+          {
+            "body": {
+              "cursor": "1",
+              "ok": true,
+              "path_templates": [],
+              "rules": [
+                {
+                  "field_rules": [
+                    {
+                      "action": "keep",
+                      "path": "body.id"
+                    }
+                  ],
+                  "fingerprint": "7885e1fa206087ff",
+                  "request_type": {
+                    "domain": "api.example.com",
+                    "method": "POST",
+                    "path_template": "/v1/orders"
+                  },
+                  "seq": 1
+                }
+              ]
+            },
+            "status": 200
+          },
+          {
+            "body": null,
+            "status": 404
+          }
+        ],
+        "request": {
+          "method": "POST",
+          "req_body": "{\"id\": 5}",
+          "req_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_body": "{\"id\": 1, \"status\": \"ok\"}",
+          "resp_headers": {
+            "Content-Type": "application/json"
+          },
+          "resp_status": 200,
+          "url": "https://api.example.com/v1/orders"
+        },
+        "salt": null
+      },
+      "name": "pipeline/404_after_sync_keeps_synced_rules",
+      "op": "pipeline_process"
+    },
+    {
+      "expected": {
+        "cache": {
+          "cursor": "5",
+          "first_sync_done": true,
+          "project_defaults": null
+        },
+        "payload": null
+      },
+      "input": {
+        "polls": [
+          {
+            "body": {
+              "cursor": "5",
+              "ok": true,
+              "path_templates": [],
+              "rules": [
+                {
+                  "field_rules": [],
+                  "fingerprint": "fp1",
+                  "request_type": {
+                    "domain": "api.example.com",
+                    "method": "POST",
+                    "path_template": "/v1/orders"
+                  },
+                  "seq": 1
+                }
+              ]
+            },
+            "status": 200
+          },
+          {
+            "body": null,
+            "status": 0
+          }
+        ],
+        "request": null,
+        "salt": null
+      },
+      "name": "pipeline/network_error_keeps_previous_cache",
+      "op": "pipeline_process"
+    },
+    {
+      "expected": {
+        "cache": {
+          "cursor": "7",
+          "first_sync_done": true,
+          "project_defaults": null
+        },
+        "payload": null
+      },
+      "input": {
+        "polls": [
+          {
+            "body": {
+              "cursor": "7",
+              "ok": true,
+              "path_templates": [],
+              "rules": [
+                {
+                  "field_rules": [],
+                  "fingerprint": "abc",
+                  "request_type": {
+                    "domain": "api.example.com",
+                    "method": "POST",
+                    "path_template": "/v1/orders"
+                  },
+                  "seq": 1
+                }
+              ]
+            },
+            "status": 200
+          }
+        ],
+        "request": null,
+        "salt": null
+      },
+      "name": "pipeline/wait_for_first_sync_returns_true_after_poll",
+      "op": "pipeline_process"
+    },
+    {
+      "expected": {
+        "cache": {
+          "cursor": "0",
+          "first_sync_done": false,
+          "project_defaults": null
+        },
+        "payload": null
+      },
+      "input": {
+        "polls": [
+          {
+            "body": null,
+            "status": 0
+          }
+        ],
+        "request": null,
+        "salt": null
+      },
+      "name": "pipeline/wait_for_first_sync_not_set_on_network_error",
+      "op": "pipeline_process"
+    },
+    {
+      "expected": {
+        "cache": {
+          "cursor": "0",
+          "first_sync_done": false,
+          "project_defaults": null
+        },
+        "payload": null
+      },
+      "input": {
+        "polls": [
+          {
+            "body": null,
+            "status": 500
+          }
+        ],
+        "request": null,
+        "salt": null
+      },
+      "name": "pipeline/wait_for_first_sync_not_set_on_non_200",
+      "op": "pipeline_process"
+    },
+    {
+      "expected": {
+        "body": "{\"a\": \"<masked>\"}",
+        "headers": {},
+        "query": "a=%3Cmasked%3E"
+      },
+      "input": {
+        "body": {
+          "$concat": [
+            "{\"a\": \"",
+            {
+              "$repeat": "a",
+              "times": 65537
+            },
+            "\"}"
+          ]
+        },
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.a"
+          },
+          {
+            "action": "keep",
+            "path": "query.a"
+          },
+          {
+            "action": "keep",
+            "path": "resp.a"
+          }
+        ],
+        "headers": {},
+        "project_defaults": {
+          "field_masks": [],
+          "regex_masks": [
+            {
+              "pattern": "zzz",
+              "replace": "x"
+            }
+          ]
+        },
+        "query": {
+          "$concat": [
+            "a=",
+            {
+              "$repeat": "a",
+              "times": 65537
+            }
+          ]
+        },
+        "salt": null
+      },
+      "name": "pipeline/string_over_cap_masked_on_every_path/json_body_and_query/over_cap",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "a=%3Cmasked%3E",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": {
+          "$concat": [
+            "a=",
+            {
+              "$repeat": "a",
+              "times": 65537
+            }
+          ]
+        },
+        "content_type": "application/x-www-form-urlencoded",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.a"
+          },
+          {
+            "action": "keep",
+            "path": "query.a"
+          },
+          {
+            "action": "keep",
+            "path": "resp.a"
+          }
+        ],
+        "headers": {},
+        "project_defaults": {
+          "field_masks": [],
+          "regex_masks": [
+            {
+              "pattern": "zzz",
+              "replace": "x"
+            }
+          ]
+        },
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/string_over_cap_masked_on_every_path/form_body/over_cap",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"a\": \"<masked>\"}",
+        "headers": {}
+      },
+      "input": {
+        "body": {
+          "$concat": [
+            "{\"a\": \"",
+            {
+              "$repeat": "a",
+              "times": 65537
+            },
+            "\"}"
+          ]
+        },
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.a"
+          },
+          {
+            "action": "keep",
+            "path": "query.a"
+          },
+          {
+            "action": "keep",
+            "path": "resp.a"
+          }
+        ],
+        "headers": {},
+        "project_defaults": {
+          "field_masks": [],
+          "regex_masks": [
+            {
+              "pattern": "zzz",
+              "replace": "x"
+            }
+          ]
+        },
+        "resp_status": 200,
+        "salt": null
+      },
+      "name": "pipeline/string_over_cap_masked_on_every_path/resp_body/over_cap",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": {
+          "$concat": [
+            "{\"a\": \"",
+            {
+              "$repeat": "a",
+              "times": 65536
+            },
+            "\"}"
+          ]
+        },
+        "headers": {},
+        "query": {
+          "$concat": [
+            "a=",
+            {
+              "$repeat": "a",
+              "times": 65536
+            }
+          ]
+        }
+      },
+      "input": {
+        "body": {
+          "$concat": [
+            "{\"a\": \"",
+            {
+              "$repeat": "a",
+              "times": 65536
+            },
+            "\"}"
+          ]
+        },
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.a"
+          },
+          {
+            "action": "keep",
+            "path": "query.a"
+          },
+          {
+            "action": "keep",
+            "path": "resp.a"
+          }
+        ],
+        "headers": {},
+        "project_defaults": {
+          "field_masks": [],
+          "regex_masks": [
+            {
+              "pattern": "zzz",
+              "replace": "x"
+            }
+          ]
+        },
+        "query": {
+          "$concat": [
+            "a=",
+            {
+              "$repeat": "a",
+              "times": 65536
+            }
+          ]
+        },
+        "salt": null
+      },
+      "name": "pipeline/string_over_cap_masked_on_every_path/json_body_and_query/at_cap",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": {
+          "$concat": [
+            "a=",
+            {
+              "$repeat": "a",
+              "times": 65536
+            }
+          ]
+        },
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": {
+          "$concat": [
+            "a=",
+            {
+              "$repeat": "a",
+              "times": 65536
+            }
+          ]
+        },
+        "content_type": "application/x-www-form-urlencoded",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.a"
+          },
+          {
+            "action": "keep",
+            "path": "query.a"
+          },
+          {
+            "action": "keep",
+            "path": "resp.a"
+          }
+        ],
+        "headers": {},
+        "project_defaults": {
+          "field_masks": [],
+          "regex_masks": [
+            {
+              "pattern": "zzz",
+              "replace": "x"
+            }
+          ]
+        },
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/string_over_cap_masked_on_every_path/form_body/at_cap",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": {
+          "$concat": [
+            "{\"a\": \"",
+            {
+              "$repeat": "a",
+              "times": 65536
+            },
+            "\"}"
+          ]
+        },
+        "headers": {}
+      },
+      "input": {
+        "body": {
+          "$concat": [
+            "{\"a\": \"",
+            {
+              "$repeat": "a",
+              "times": 65536
+            },
+            "\"}"
+          ]
+        },
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.a"
+          },
+          {
+            "action": "keep",
+            "path": "query.a"
+          },
+          {
+            "action": "keep",
+            "path": "resp.a"
+          }
+        ],
+        "headers": {},
+        "project_defaults": {
+          "field_masks": [],
+          "regex_masks": [
+            {
+              "pattern": "zzz",
+              "replace": "x"
+            }
+          ]
+        },
+        "resp_status": 200,
+        "salt": null
+      },
+      "name": "pipeline/string_over_cap_masked_on_every_path/resp_body/at_cap",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"a\": \"<masked>\"}",
+        "headers": {},
+        "query": "a=%3Cmasked%3E"
+      },
+      "input": {
+        "body": "{\"a\": \"hello\"}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.a"
+          },
+          {
+            "action": "keep",
+            "path": "query.a"
+          },
+          {
+            "action": "keep",
+            "path": "resp.a"
+          }
+        ],
+        "headers": {},
+        "project_defaults": {
+          "field_masks": [],
+          "regex_masks": [
+            {
+              "pattern": "[[["
+            }
+          ]
+        },
+        "query": "a=hello",
+        "salt": null
+      },
+      "name": "pipeline/unusable_rules_mask_every_path/json_body_and_query/hello",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "a=%3Cmasked%3E",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "a=hello",
+        "content_type": "application/x-www-form-urlencoded",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.a"
+          },
+          {
+            "action": "keep",
+            "path": "query.a"
+          },
+          {
+            "action": "keep",
+            "path": "resp.a"
+          }
+        ],
+        "headers": {},
+        "project_defaults": {
+          "field_masks": [],
+          "regex_masks": [
+            {
+              "pattern": "[[["
+            }
+          ]
+        },
+        "query": "",
+        "salt": null
+      },
+      "name": "pipeline/unusable_rules_mask_every_path/form_body/hello",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"a\": \"<masked>\"}",
+        "headers": {}
+      },
+      "input": {
+        "body": "{\"a\": \"hello\"}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.a"
+          },
+          {
+            "action": "keep",
+            "path": "query.a"
+          },
+          {
+            "action": "keep",
+            "path": "resp.a"
+          }
+        ],
+        "headers": {},
+        "project_defaults": {
+          "field_masks": [],
+          "regex_masks": [
+            {
+              "pattern": "[[["
+            }
+          ]
+        },
+        "resp_status": 200,
+        "salt": null
+      },
+      "name": "pipeline/unusable_rules_mask_every_path/resp_body/hello",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [],
+          "unusable": true
+        }
+      },
+      "input": {
+        "body": "hello",
+        "content_type": "text/plain",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "pattern": "[[["
+          }
+        ]
+      },
+      "name": "pipeline/unusable_rules_mask_text_plain_in_mask_known",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": {
+          "$repeat": "a",
+          "times": 65536
+        },
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [
+            "x"
+          ],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": {
+          "$repeat": "a",
+          "times": 65536
+        },
+        "content_type": "text/plain",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "pattern": "zzz",
+            "replace": "x"
+          }
+        ]
+      },
+      "name": "privacy_modules/long_string_masked_without_running_regex/at_cap",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [
+            "x"
+          ],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": {
+          "$repeat": "a",
+          "times": 65537
+        },
+        "content_type": "text/plain",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "pattern": "zzz",
+            "replace": "x"
+          }
+        ]
+      },
+      "name": "privacy_modules/long_string_masked_without_running_regex/over_cap",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": {
+          "$repeat": "a",
+          "times": 65537
+        },
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [
+            "f"
+          ],
+          "regex_replacements": [],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": {
+          "$repeat": "a",
+          "times": 65537
+        },
+        "content_type": "text/plain",
+        "field_masks": [
+          "f"
+        ],
+        "headers": {},
+        "query": "",
+        "regex_masks": []
+      },
+      "name": "privacy_modules/long_string_kept_when_no_regex_active",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "{\"val\": \"<masked>\", \"n\": 1}",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [],
+          "unusable": true
+        }
+      },
+      "input": {
+        "body": "{\"val\": \"hello\", \"n\": 1}",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "pattern": "[[[",
+            "replace": "x"
+          }
+        ]
+      },
+      "name": "privacy_modules/invalid_regex_fails_closed",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [
+            "x"
+          ],
+          "unusable": true
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "pattern": "ok",
+            "replace": "x"
+          },
+          {
+            "pattern": "[invalid(",
+            "replace": "x"
+          }
+        ]
+      },
+      "name": "privacy_modules/invalid_regex_marks_rules_unusable",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [],
+          "unusable": true
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "pattern": "a{99999999999}",
+            "replace": "x"
+          }
+        ]
+      },
+      "name": "privacy_modules/repeat_count_python_cannot_represent_marks_unusable",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [],
+          "unusable": true
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "pattern": 5
+          }
+        ]
+      },
+      "name": "privacy_modules/malformed_entry_marks_unusable/0",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [],
+          "unusable": true
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "pattern": ""
+          }
+        ]
+      },
+      "name": "privacy_modules/malformed_entry_marks_unusable/1",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [],
+          "unusable": true
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {}
+        ]
+      },
+      "name": "privacy_modules/malformed_entry_marks_unusable/2",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [],
+          "unusable": true
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          "not an object"
+        ]
+      },
+      "name": "privacy_modules/malformed_entry_marks_unusable/3",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [],
+          "unusable": true
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "pattern": "a",
+            "replace": 5
+          }
+        ]
+      },
+      "name": "privacy_modules/malformed_entry_marks_unusable/4",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [],
+          "unusable": true
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "flags": 5,
+            "pattern": "a"
+          }
+        ]
+      },
+      "name": "privacy_modules/malformed_entry_marks_unusable/5",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [],
+          "unusable": true
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": {
+          "pattern": "a"
+        }
+      },
+      "name": "privacy_modules/malformed_entry_marks_unusable/6",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [
+            "ok"
+          ],
+          "regex_replacements": [],
+          "unusable": true
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "field_masks": [
+          1,
+          "ok"
+        ],
+        "headers": {},
+        "query": "",
+        "regex_masks": []
+      },
+      "name": "privacy_modules/malformed_entry_marks_unusable/7",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [],
+          "unusable": true
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "field_masks": "password",
+        "headers": {},
+        "query": "",
+        "regex_masks": []
+      },
+      "name": "privacy_modules/malformed_entry_marks_unusable/8",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [
+            "secret"
+          ],
+          "regex_replacements": [
+            "x"
+          ],
+          "unusable": true
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "field_masks": [
+          1,
+          "Secret"
+        ],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "pattern": 5
+          },
+          {
+            "pattern": "ok",
+            "replace": "x"
+          }
+        ]
+      },
+      "name": "privacy_modules/malformed_entry_keeps_the_rest",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "",
+        "headers": {},
+        "query": "",
+        "rules": {
+          "field_masks": [],
+          "regex_replacements": [
+            "x"
+          ],
+          "unusable": false
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "application/json",
+        "field_masks": [],
+        "headers": {},
+        "query": "",
+        "regex_masks": [
+          {
+            "pattern": "ok",
+            "replace": "x"
+          }
+        ]
+      },
+      "name": "privacy_modules/valid_regexes_not_unusable",
+      "op": "compile_and_mask"
+    },
+    {
+      "expected": {
+        "body": "{}",
+        "headers": {},
+        "query": "a=%3Cmasked%3E&b=%3Cmasked%3E"
+      },
+      "input": {
+        "body": "{}",
+        "content_type": "application/json",
+        "headers": {},
+        "query": "a=1&b=2"
+      },
+      "name": "privacy_modules/mask_all_query",
+      "op": "mask_all"
+    },
+    {
+      "expected": {
+        "body": "{\"user\": {\"name\": \"<masked>\", \"age\": 0}, \"active\": false, \"score\": null}",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "{\"user\": {\"name\": \"Alice\", \"age\": 30}, \"active\": true, \"score\": null}",
+        "content_type": "application/json",
+        "headers": {},
+        "query": ""
+      },
+      "name": "privacy_modules/json_structure_preserved",
+      "op": "mask_all"
+    },
+    {
+      "expected": {
+        "body": "[{\"id\": 0, \"val\": \"<masked>\"}, {\"id\": 0, \"val\": \"<masked>\"}]",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "[{\"id\": 1, \"val\": \"x\"}, {\"id\": 2, \"val\": \"y\"}]",
+        "content_type": "application/json",
+        "headers": {},
+        "query": ""
+      },
+      "name": "privacy_modules/root_array_structure_preserved",
+      "op": "mask_all"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "not json",
+        "content_type": "text/plain",
+        "headers": {},
+        "query": ""
+      },
+      "name": "privacy_modules/non_json_body_becomes_masked_string",
+      "op": "mask_all"
+    },
+    {
+      "expected": {
+        "body": "username=%3Cmasked%3E&password=%3Cmasked%3E",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "username=alice&password=s3cr3t",
+        "content_type": "application/x-www-form-urlencoded",
+        "headers": {},
+        "query": ""
+      },
+      "name": "privacy_modules/form_encoded_field_names_kept",
+      "op": "mask_all"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "Dear SECRET, your PIN is 1234",
+        "content_type": "application/x-www-form-urlencoded",
+        "headers": {},
+        "query": ""
+      },
+      "name": "privacy_modules/mask_all_masks_the_whole_body/free_text",
+      "op": "mask_all"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "a=1&Dear SECRET",
+        "content_type": "application/x-www-form-urlencoded",
+        "headers": {},
+        "query": ""
+      },
+      "name": "privacy_modules/mask_all_masks_the_whole_body/segment_without_equals",
+      "op": "mask_all"
+    },
+    {
+      "expected": {
+        "body": "a=%3Cmasked%3E&b=%3Cmasked%3E",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "a=1&b=",
+        "content_type": "application/x-www-form-urlencoded",
+        "headers": {},
+        "query": ""
+      },
+      "name": "privacy_modules/mask_all_keeps_a_valid_form",
+      "op": "mask_all"
+    },
+    {
+      "expected": {
+        "result": null
+      },
+      "input": {
+        "body": "Dear SECRET, your PIN is 1234"
+      },
+      "name": "privacy_modules/parse_form_rejects_a_segment_without_equals/free_text",
+      "op": "parse_form"
+    },
+    {
+      "expected": {
+        "result": null
+      },
+      "input": {
+        "body": "a=1&Dear SECRET"
+      },
+      "name": "privacy_modules/parse_form_rejects_a_segment_without_equals/segment_without_equals",
+      "op": "parse_form"
+    },
+    {
+      "expected": {
+        "result": {
+          "a": [
+            "1"
+          ],
+          "b": [
+            ""
+          ],
+          "c": [
+            "x=y"
+          ]
+        }
+      },
+      "input": {
+        "body": "a=1&&b=&c=x=y&"
+      },
+      "name": "privacy_modules/parse_form_rejects_a_segment_without_equals/valid_with_odd_segments",
+      "op": "parse_form"
+    },
+    {
+      "expected": {
+        "result": {}
+      },
+      "input": {
+        "body": ""
+      },
+      "name": "privacy_modules/parse_form_rejects_a_segment_without_equals/empty",
+      "op": "parse_form"
+    },
+    {
+      "expected": {
+        "key_paths": []
+      },
+      "input": {
+        "body": "Dear SECRET, your PIN is 1234",
+        "content_type": "application/x-www-form-urlencoded"
+      },
+      "name": "privacy_modules/no_key_paths_value_types_or_value_pairs/extract_keypaths/free_text",
+      "op": "extract_keypaths"
+    },
+    {
+      "expected": {
+        "value_types": {}
+      },
+      "input": {
+        "body": "Dear SECRET, your PIN is 1234",
+        "content_type": "application/x-www-form-urlencoded"
+      },
+      "name": "privacy_modules/no_key_paths_value_types_or_value_pairs/extract_value_types/free_text",
+      "op": "extract_value_types"
+    },
+    {
+      "expected": {
+        "key_paths": []
+      },
+      "input": {
+        "body": "a=1&Dear SECRET",
+        "content_type": "application/x-www-form-urlencoded"
+      },
+      "name": "privacy_modules/no_key_paths_value_types_or_value_pairs/extract_keypaths/segment_without_equals",
+      "op": "extract_keypaths"
+    },
+    {
+      "expected": {
+        "value_types": {}
+      },
+      "input": {
+        "body": "a=1&Dear SECRET",
+        "content_type": "application/x-www-form-urlencoded"
+      },
+      "name": "privacy_modules/no_key_paths_value_types_or_value_pairs/extract_value_types/segment_without_equals",
+      "op": "extract_value_types"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {},
+        "query": ""
+      },
+      "input": {
+        "body": "a=1&Dear SECRET",
+        "content_type": "application/x-www-form-urlencoded",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.a"
+          },
+          {
+            "action": "keep",
+            "path": "body.Dear SECRET"
+          },
+          {
+            "action": "keep",
+            "path": "resp.a"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "query": "",
+        "salt": null
+      },
+      "name": "privacy_modules/field_rules_mask_the_whole_body_even_with_a_keep/request",
+      "op": "apply_field_rules"
+    },
+    {
+      "expected": {
+        "body": "<masked>",
+        "headers": {}
+      },
+      "input": {
+        "body": "Dear SECRET, your PIN is 1234",
+        "content_type": "application/x-www-form-urlencoded",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "body.a"
+          },
+          {
+            "action": "keep",
+            "path": "body.Dear SECRET"
+          },
+          {
+            "action": "keep",
+            "path": "resp.a"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "resp_status": 200,
+        "salt": null
+      },
+      "name": "privacy_modules/field_rules_mask_the_whole_body_even_with_a_keep/response",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp:abc.x"
+          }
+        ]
+      },
+      "name": "privacy_modules/malformed_non_digit_status_ignored",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp:1.x"
+          }
+        ]
+      },
+      "name": "privacy_modules/malformed_one_digit_status_ignored",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp:99.x"
+          }
+        ]
+      },
+      "name": "privacy_modules/malformed_two_digit_status_ignored",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp:600.x"
+          }
+        ]
+      },
+      "name": "privacy_modules/malformed_out_of_range_600_ignored",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp:0404.x"
+          }
+        ]
+      },
+      "name": "privacy_modules/malformed_leading_zero_ignored",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp:404"
+          }
+        ]
+      },
+      "name": "privacy_modules/malformed_no_subpath_ignored",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp:404."
+          }
+        ]
+      },
+      "name": "privacy_modules/malformed_empty_subpath_ignored",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp:²²².error"
+          }
+        ]
+      },
+      "name": "privacy_modules/superscript_digits_ignored_no_exception",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp:٤٠٤.error"
+          }
+        ]
+      },
+      "name": "privacy_modules/arabic_indic_digits_ignored_no_exception",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body_mask_types": {},
+        "keep_body": [],
+        "keep_header": [],
+        "keep_query": [],
+        "keep_resp": [],
+        "keep_resp_header": [],
+        "keep_resp_header_status": [],
+        "keep_resp_status": [],
+        "mask_resp_header_status": [],
+        "mask_resp_status": [],
+        "query_mask_types": {},
+        "resp_mask_types": {}
+      },
+      "input": {
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp:abc.x"
+          },
+          {
+            "action": "keep",
+            "path": "resp:1.x"
+          },
+          {
+            "action": "keep",
+            "path": "resp:99.x"
+          },
+          {
+            "action": "keep",
+            "path": "resp:600.x"
+          },
+          {
+            "action": "keep",
+            "path": "resp:0404.x"
+          },
+          {
+            "action": "keep",
+            "path": "resp:404"
+          },
+          {
+            "action": "keep",
+            "path": "resp:404."
+          }
+        ]
+      },
+      "name": "privacy_modules/malformed_never_raises",
+      "op": "compile_field_rules"
+    },
+    {
+      "expected": {
+        "body": "{\"name\": \"<masked>\", \"id\": 0}",
+        "headers": {}
+      },
+      "input": {
+        "body": "{\"name\": \"Alice\", \"id\": 1}",
+        "content_type": "application/json",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp:200.name"
+          },
+          {
+            "action": "mask",
+            "path": "resp:200.name"
+          }
+        ],
+        "headers": {},
+        "project_defaults": null,
+        "resp_status": 200,
+        "salt": null
+      },
+      "name": "privacy_modules/conflict_mask_wins_body",
+      "op": "apply_resp_field_rules"
+    },
+    {
+      "expected": {
+        "body": "",
+        "headers": {
+          "content-type": "application/json",
+          "x-custom": "<masked>"
+        }
+      },
+      "input": {
+        "body": "",
+        "content_type": "",
+        "email_domain": null,
+        "field_rules": [
+          {
+            "action": "keep",
+            "path": "resp_header:200.x-custom"
+          },
+          {
+            "action": "mask",
+            "path": "resp_header:200.x-custom"
+          }
+        ],
+        "headers": {
+          "content-type": "application/json",
+          "x-custom": "val"
+        },
+        "project_defaults": null,
+        "resp_status": 200,
+        "salt": null
+      },
+      "name": "privacy_modules/conflict_mask_wins_header",
+      "op": "apply_resp_field_rules"
+    }
+  ],
+  "description": "Fail-closed behaviour: whatever cannot be understood or used is masked, never sent. Shared vectors: the Python SDK is the source of truth and any other SDK runs the same file and must reproduce every expected value exactly. Each case is {name, op, input, expected}; op names one of the operations below. JSON bodies are source text, masked bodies are Python json.dumps text, and form and query output is urlencode(doseq=True) text; compare them as strings. A string of many equal characters is written {\"$repeat\": \"a\", \"times\": 65537}, and a string made of such parts {\"$concat\": [...]}; expand them before use.\nOperations used in this file:\n- apply_field_rules: input {field_rules, body, headers, query, content_type, project_defaults, salt, email_domain}; compile the field rules, then mask a request. project_defaults is null or {field_masks, regex_masks}, compiled as the project's extra rules. salt is the STUBSMITH_MASK_SALT string (null means unset). email_domain null means the default. expected {body, headers, query}, compared as exact text.\n- apply_resp_field_rules: same input as apply_field_rules without query, plus resp_status (an integer or null); expected {body, headers}.\n- compile_field_rules: input {field_rules}; expected the compiled sets as sorted lists: keep_body, keep_query, keep_header, keep_resp, keep_resp_header, keep_resp_status, mask_resp_status, keep_resp_header_status, mask_resp_header_status (the last four as [status, path] pairs sorted by status then path), and the objects body_mask_types, query_mask_types, resp_mask_types.\n- compile_and_mask: input {field_masks, regex_masks, body, headers, query, content_type}; compile the two lists as the project's mask rules (any JSON, including malformed values), then mask_known. expected {rules: {unusable, field_masks (sorted), regex_replacements (the replacement text of each usable regex, in order)}, body, headers, query}.\n- mask_all: input {body, headers, query, content_type}; expected {body, headers, query}.\n- parse_form: input {body}; expected {result}: null for a body that is not key=value pairs, else the parsed {name: [values]}.\n- extract_keypaths: input {body, content_type}; expected {key_paths}, the list of key paths in order.\n- extract_value_types: input {body, content_type}; expected {value_types}.\n- pipeline_process: input {polls, request, salt}; salt is the STUBSMITH_MASK_SALT string or null; build an empty rules cache and feed it each poll in order, as the answer of the sync endpoint ({status, body}: status 0 is a network error, body null when there is none), then process request ({method, url, req_headers, req_body, resp_status, resp_headers, resp_body}) unless it is null. expected {payload, cache}: payload is the whole payload without sdk_version (each SDK checks its own), or null; cache is {cursor, first_sync_done, project_defaults}, where project_defaults is null or {field_masks (sorted), regex_count, unusable}.\nNot vectorised (each stays a test in its own repository):\n- tests/test_pipeline.py::TestProjectDefaults::test_project_defaults_that_fail_to_compile_mask_kept_strings: patches compile_rules to raise\n- tests/test_pipeline.py::TestPipelineFailClosed (3 tests) and tests/test_value_types.py::TestPipelineValueTypes::test_catastrophic_failure_returns_none: patch the masker or the URL parser to raise\n- tests/test_pipeline.py::TestPipelineSyncNotFound::test_404_logs_one_warning_naming_404_and_backend_url and the three other 404 warning tests: assert on log records\n- tests/test_pipeline.py::TestRulesCacheCursorAndTemplates::test_wait_for_first_sync_times_out_when_backend_unreachable: asserts on a timeout\n- tests/test_pipeline.py::TestClientPipelineIntegration::test_privacy_init_failure_drops_capture_not_raw: patches the cache constructor and sends through a real client\n- tests/test_privacy_modules.py::TestCompileRules::test_invalid_regex_warns_once: asserts on log records\n- tests/test_privacy_modules.py::TestFreeTextFormBody::test_no_key_paths_value_types_or_value_pairs (the _extract_value_pairs assertion only; the key path and value type assertions are cases): calls a private helper that has no operation\n- tests/test_first_sync_hold.py (8 tests): need threads, timing and a capture queue\n- tests/test_capture.py::test_multipart_upload_records_type_but_no_fabricated_body and test_disabled_*: need a real HTTP exchange or the client options\n- tests/test_replay.py::TestInstallInteraction (2 tests) and tests/test_cli.py::TestSummaryWarnings::test_degraded_stubs_surfaced: need the replay engine or the command line",
+  "source": "stubsmith.privacy.field_rules, masking, pipeline (via tests/shared_vector_ops.py)"
+}

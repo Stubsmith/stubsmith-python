@@ -1058,7 +1058,7 @@ class TestInstallInteraction:
         """Return a StubSmith client that records enqueued payloads in a list."""
         from stubsmith.client import StubSmith
         captured = []
-        client = StubSmith(url="http://unused", api_key="sk-test")
+        client = StubSmith(url="https://unused", api_key="sk-test")
         client.enqueue = lambda p: captured.append(p)
         return client, captured
 
@@ -1101,7 +1101,7 @@ class TestInstallInteraction:
         from stubsmith._replay_state import is_replay_active
 
         captured = []
-        client = StubSmith(url="http://unused", api_key="sk-test")
+        client = StubSmith(url="https://unused", api_key="sk-test")
         client.enqueue = lambda p: captured.append(p)
 
         bundle = _bundle(

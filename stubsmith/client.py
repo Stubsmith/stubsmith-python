@@ -36,6 +36,8 @@ import weakref
 from collections.abc import Mapping
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from . import _endpoint
+from ._endpoint import InsecureEndpointError, check_endpoint
 from ._replay_state import is_replay_active
 from ._version import __version__
 from .privacy.pipeline import RAW_PATH_FIELD
@@ -404,9 +406,19 @@ class StubSmith:
                 backend_url
                 or os.environ.get("STUBSMITH_BACKEND_URL", _DEFAULT_BACKEND_URL)
             )
-            self._init_privacy(
-                rules_poll_interval=rules_poll_interval,
-            )
+            # A plaintext ingest or backend URL turns capture off rather than
+            # raising: a bad environment variable must not stop the host
+            # application from starting, and nothing is sent.
+            try:
+                check_endpoint(self.url)
+                check_endpoint(self._backend_url)
+            except InsecureEndpointError as exc:
+                logger.warning("%s Capture is off.", exc)
+                self.enabled = False
+            else:
+                self._init_privacy(
+                    rules_poll_interval=rules_poll_interval,
+                )
 
     def _init_privacy(
         self,
@@ -1107,13 +1119,14 @@ class StubSmith:
                 # Never fail a send over compression; ship it uncompressed.
                 pass
 
+        check_endpoint(self.url)
         req = urllib.request.Request(
             self.url,
             data=body,
             headers=headers,
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310
+        with _endpoint.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310
             raw = resp.read()  # drain
             status = getattr(resp, "status", None)
         _report_ingest_refusal(raw, status, self._debug)

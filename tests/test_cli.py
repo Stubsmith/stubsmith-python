@@ -116,7 +116,7 @@ class TestSubcommandDispatch(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             out = str(pathlib.Path(d) / "bundle.json")
             with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-                with patch("urllib.request.urlopen", return_value=_urlopen_mock(bundle)):
+                with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock(bundle)):
                     code = main(["pull", "--out", out])
             self.assertEqual(code, 0)
             self.assertTrue(pathlib.Path(out).exists())
@@ -145,7 +145,7 @@ class TestPullHappyPath(unittest.TestCase):
         out = str(tmp_path / "bundle.json")
         argv = ["pull", "--out", out] + (extra_argv or [])
         with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-            with patch("urllib.request.urlopen", return_value=_urlopen_mock(bundle)):
+            with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock(bundle)):
                 code = main(argv)
         return code, out
 
@@ -210,9 +210,9 @@ class TestPullHappyPath(unittest.TestCase):
             out2 = str(pathlib.Path(d) / "b2.json")
 
             with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-                with patch("urllib.request.urlopen", return_value=_urlopen_mock(bundle1)):
+                with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock(bundle1)):
                     main(["pull", "--out", out1])
-                with patch("urllib.request.urlopen", return_value=_urlopen_mock(bundle2)):
+                with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock(bundle2)):
                     main(["pull", "--out", out2])
 
             with open(out1, encoding="utf-8") as f1, open(out2, encoding="utf-8") as f2:
@@ -247,7 +247,7 @@ class TestOutFlag(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             out = str(pathlib.Path(d) / "custom.json")
             with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-                with patch("urllib.request.urlopen", return_value=_urlopen_mock(_make_bundle())):
+                with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock(_make_bundle())):
                     code = main(["pull", "--out", out])
             self.assertEqual(code, 0)
             self.assertTrue(pathlib.Path(out).exists())
@@ -257,7 +257,7 @@ class TestOutFlag(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             out = str(pathlib.Path(d) / "deep" / "nested" / "bundle.json")
             with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-                with patch("urllib.request.urlopen", return_value=_urlopen_mock(_make_bundle())):
+                with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock(_make_bundle())):
                     code = main(["pull", "--out", out])
             self.assertEqual(code, 0)
             self.assertTrue(pathlib.Path(out).exists())
@@ -274,7 +274,7 @@ class TestEndpointFilter(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             out = str(pathlib.Path(d) / "bundle.json")
             with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-                with patch("urllib.request.urlopen", return_value=_urlopen_mock(_make_bundle())) as mopen:
+                with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock(_make_bundle())) as mopen:
                     main(["pull", "--out", out, "--endpoint", "GET /api/users/{id}"])
             called_url = mopen.call_args[0][0].full_url
         self.assertIn("method=GET", called_url)
@@ -285,7 +285,7 @@ class TestEndpointFilter(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             out = str(pathlib.Path(d) / "bundle.json")
             with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-                with patch("urllib.request.urlopen", return_value=_urlopen_mock(_make_bundle())) as mopen:
+                with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock(_make_bundle())) as mopen:
                     main(["pull", "--out", out, "--endpoint", "post /v1/charges"])
             called_url = mopen.call_args[0][0].full_url
         self.assertIn("method=POST", called_url)
@@ -317,7 +317,7 @@ class TestHttpErrors(unittest.TestCase):
         out = str(tmp_path / "bundle.json")
         err = _http_error(status_code)
         with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-            with patch("urllib.request.urlopen", side_effect=err):
+            with patch("stubsmith._endpoint.urlopen", side_effect=err):
                 with patch("sys.stderr", new_callable=io.StringIO) as mock_err:
                     code = main(["pull", "--out", out])
         return code, mock_err.getvalue()
@@ -363,7 +363,7 @@ class TestHttpErrors(unittest.TestCase):
             out.write_text("previous bundle")
             effects = [_urlopen_mock(_make_bundle()), _http_error(503)]
             with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-                with patch("urllib.request.urlopen", side_effect=effects):
+                with patch("stubsmith._endpoint.urlopen", side_effect=effects):
                     with patch("sys.stderr", new_callable=io.StringIO) as err:
                         code = main([
                             "pull", "--out", str(out),
@@ -387,7 +387,7 @@ class TestMalformedJson(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             out = str(pathlib.Path(d) / "bundle.json")
             with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-                with patch("urllib.request.urlopen", return_value=bad_resp):
+                with patch("stubsmith._endpoint.urlopen", return_value=bad_resp):
                     with patch("sys.stderr", new_callable=io.StringIO):
                         code = main(["pull", "--out", out])
             self.assertNotEqual(code, 0)
@@ -408,7 +408,7 @@ class TestMalformedJson(unittest.TestCase):
             bad_resp.__exit__ = MagicMock(return_value=False)
 
             with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-                with patch("urllib.request.urlopen", return_value=bad_resp):
+                with patch("stubsmith._endpoint.urlopen", return_value=bad_resp):
                     with patch("sys.stderr", new_callable=io.StringIO):
                         main(["pull", "--out", str(out)])
 
@@ -425,7 +425,7 @@ class TestSummaryWarnings(unittest.TestCase):
     def _run_capture_stdout(self, bundle, tmp_path):
         out = str(tmp_path / "bundle.json")
         with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-            with patch("urllib.request.urlopen", return_value=_urlopen_mock(bundle)):
+            with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock(bundle)):
                 with patch("sys.stdout", new_callable=io.StringIO) as mock_out:
                     code = main(["pull", "--out", out])
         return code, mock_out.getvalue()
@@ -525,7 +525,7 @@ class TestFingerprintCollision(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             out = str(pathlib.Path(d) / "bundle.json")
             with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-                with patch("urllib.request.urlopen", return_value=_urlopen_mock(bundle)):
+                with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock(bundle)):
                     code = main(["pull", "--out", out])
             self.assertEqual(code, 0)
             with open(out, encoding="utf-8") as fh:
@@ -541,7 +541,7 @@ class TestFingerprintCollision(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             out = str(pathlib.Path(d) / "bundle.json")
             with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-                with patch("urllib.request.urlopen", return_value=_urlopen_mock(bundle)):
+                with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock(bundle)):
                     main(["pull", "--out", out])
             with open(out, encoding="utf-8") as fh:
                 data = json.load(fh)
@@ -562,7 +562,7 @@ class TestFingerprintCollision(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             out = str(pathlib.Path(d) / "bundle.json")
             with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-                with patch("urllib.request.urlopen", return_value=_urlopen_mock(bundle)):
+                with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock(bundle)):
                     main(["pull", "--out", out])
             with open(out, encoding="utf-8") as fh:
                 content = fh.read()
@@ -741,7 +741,7 @@ class TestSamplesFlag(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             out = str(pathlib.Path(d) / "bundle.json")
             with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-                with patch("urllib.request.urlopen", return_value=_urlopen_mock(_make_bundle())) as mopen:
+                with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock(_make_bundle())) as mopen:
                     code = main(["pull", "--out", out, *extra])
             url = mopen.call_args[0][0].full_url if mopen.call_args else None
         return code, url
@@ -773,7 +773,7 @@ class TestSamplesFlag(unittest.TestCase):
         than surfacing as an opaque HTTP 400."""
         with patch("sys.stderr", new_callable=io.StringIO) as err:
             with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-                with patch("urllib.request.urlopen") as mopen:
+                with patch("stubsmith._endpoint.urlopen") as mopen:
                     code = main(["pull", "--samples", "all"])
         self.assertEqual(code, 1)
         self.assertIn("--endpoint", err.getvalue())
@@ -784,7 +784,7 @@ class TestSamplesFlag(unittest.TestCase):
             with self.subTest(value=value):
                 with patch("sys.stderr", new_callable=io.StringIO) as err:
                     with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-                        with patch("urllib.request.urlopen") as mopen:
+                        with patch("stubsmith._endpoint.urlopen") as mopen:
                             code = main(["pull", "--endpoint", "GET /x", "--samples", value])
                 self.assertEqual(code, 1)
                 self.assertIn("--samples", err.getvalue())
@@ -797,14 +797,14 @@ class TestFetchBundle(unittest.TestCase):
         import stubsmith
         bundle = _make_bundle()
         with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-            with patch("urllib.request.urlopen", return_value=_urlopen_mock(bundle)):
+            with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock(bundle)):
                 got = stubsmith.fetch_bundle("GET /api/orders", samples="all")
         self.assertEqual(got["endpoints"], bundle["endpoints"])
 
     def test_forwards_endpoint_and_samples(self):
         import stubsmith
         with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-            with patch("urllib.request.urlopen", return_value=_urlopen_mock(_make_bundle())) as mopen:
+            with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock(_make_bundle())) as mopen:
                 stubsmith.fetch_bundle("get /api/orders", samples=3)
         url = mopen.call_args[0][0].full_url
         self.assertIn("method=GET", url)
@@ -813,7 +813,7 @@ class TestFetchBundle(unittest.TestCase):
     def test_explicit_api_key_beats_the_environment(self):
         import stubsmith
         with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-from-env"}):
-            with patch("urllib.request.urlopen", return_value=_urlopen_mock(_make_bundle())) as mopen:
+            with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock(_make_bundle())) as mopen:
                 stubsmith.fetch_bundle(api_key="sk-explicit")
         header = mopen.call_args[0][0].get_header("Authorization")
         self.assertEqual(header, "Bearer sk-explicit")
@@ -873,7 +873,7 @@ class TestMultipleEndpoints(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             out = str(pathlib.Path(d) / "bundle.json")
             with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-                with patch("urllib.request.urlopen",
+                with patch("stubsmith._endpoint.urlopen",
                            side_effect=[_urlopen_mock(r) for r in responses]) as mopen:
                     code = main(["pull", "--out", out, *extra])
             written = _json.loads(pathlib.Path(out).read_text()) if code == 0 else None
@@ -973,7 +973,7 @@ class TestMultipleEndpoints(unittest.TestCase):
     def test_one_malformed_endpoint_fails_before_any_request(self):
         with patch("sys.stderr", new_callable=io.StringIO) as err:
             with patch.dict(os.environ, {"STUBSMITH_API_KEY": "sk-test"}):
-                with patch("urllib.request.urlopen") as mopen:
+                with patch("stubsmith._endpoint.urlopen") as mopen:
                     code = main(["pull", "--endpoint", "GET /a", "--endpoint", "/b"])
         self.assertEqual(code, 1)
         self.assertIn("--endpoint", err.getvalue())

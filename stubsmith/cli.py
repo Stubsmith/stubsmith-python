@@ -47,6 +47,8 @@ import urllib.parse
 import urllib.request
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from . import _endpoint
+from ._endpoint import check_endpoint
 from ._version import __version__
 
 _DEFAULT_OUT      = ".stubsmith/bundle.json"
@@ -119,6 +121,7 @@ def _fetch_bundle(
     if samples is not None:
         params["samples"] = str(samples)
 
+    check_endpoint(api_url)
     qs = ("?" + urllib.parse.urlencode(params)) if params else ""
     url = api_url.rstrip("/") + "/v1/replay/bundle" + qs
 
@@ -132,7 +135,7 @@ def _fetch_bundle(
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
+        with _endpoint.urlopen(req, timeout=30) as resp:  # noqa: S310
             raw = resp.read()
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")

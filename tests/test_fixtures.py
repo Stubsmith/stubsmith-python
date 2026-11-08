@@ -152,7 +152,7 @@ class TestFixturesFunction(unittest.TestCase):
 
     def test_method_and_path_forwarded(self):
         """fixtures() must split on first space and send method + path params."""
-        with patch("urllib.request.urlopen", return_value=_urlopen_mock([SAMPLE_PAYLOAD])) as mopen:
+        with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock([SAMPLE_PAYLOAD])) as mopen:
             result = fixtures(
                 "POST /v1/charges/{id}",
                 api_url="http://localhost:3000",
@@ -168,13 +168,13 @@ class TestFixturesFunction(unittest.TestCase):
         self.assertIsInstance(result[0], Fixture)
 
     def test_method_uppercased(self):
-        with patch("urllib.request.urlopen", return_value=_urlopen_mock([])) as mopen:
+        with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock([])) as mopen:
             fixtures("get /v1/users", api_url="http://localhost:3000", api_key="sk-test")
         url = mopen.call_args[0][0].full_url
         self.assertIn("method=GET", url)
 
     def test_distinct_param_forwarded(self):
-        with patch("urllib.request.urlopen", return_value=_urlopen_mock([])) as mopen:
+        with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock([])) as mopen:
             fixtures(
                 "GET /v1/users",
                 api_url="http://localhost:3000",
@@ -185,7 +185,7 @@ class TestFixturesFunction(unittest.TestCase):
         self.assertIn("distinct=status", url)
 
     def test_limit_param_forwarded(self):
-        with patch("urllib.request.urlopen", return_value=_urlopen_mock([])) as mopen:
+        with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock([])) as mopen:
             fixtures(
                 "GET /v1/users",
                 api_url="http://localhost:3000",
@@ -196,20 +196,20 @@ class TestFixturesFunction(unittest.TestCase):
         self.assertIn("limit=5", url)
 
     def test_bearer_token_in_auth_header(self):
-        with patch("urllib.request.urlopen", return_value=_urlopen_mock([])) as mopen:
+        with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock([])) as mopen:
             fixtures("GET /v1/health", api_url="http://localhost:3000", api_key="sk-mykey")
         req = mopen.call_args[0][0]
         self.assertIn("sk-mykey", req.get_header("Authorization"))
 
     def test_returns_list_of_fixture_objects(self):
-        with patch("urllib.request.urlopen", return_value=_urlopen_mock([SAMPLE_PAYLOAD, SAMPLE_PAYLOAD])):
+        with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock([SAMPLE_PAYLOAD, SAMPLE_PAYLOAD])):
             result = fixtures("POST /v1/charges/{id}", api_url="http://localhost:3000", api_key="sk-t")
         self.assertEqual(len(result), 2)
         self.assertIsInstance(result[0], Fixture)
         self.assertIsInstance(result[1], Fixture)
 
     def test_empty_fixture_list_returns_empty_list(self):
-        with patch("urllib.request.urlopen", return_value=_urlopen_mock([])):
+        with patch("stubsmith._endpoint.urlopen", return_value=_urlopen_mock([])):
             result = fixtures("GET /v1/nothing", api_url="http://localhost:3000", api_key="sk-t")
         self.assertEqual(result, [])
 
@@ -236,7 +236,7 @@ class TestFixturesErrors(unittest.TestCase):
             os.environ,
             {"STUBSMITH_API_KEY": "sk-env-key", "STUBSMITH_API_URL": "http://localhost:3000"},
         ):
-            with patch("urllib.request.urlopen", return_value=mock_resp) as mopen:
+            with patch("stubsmith._endpoint.urlopen", return_value=mock_resp) as mopen:
                 fixtures("GET /v1/test")
         req = mopen.call_args[0][0]
         self.assertIn("sk-env-key", req.get_header("Authorization"))
@@ -245,12 +245,12 @@ class TestFixturesErrors(unittest.TestCase):
         mock_resp = _urlopen_mock([])
         with patch.dict(
             os.environ,
-            {"STUBSMITH_API_KEY": "sk-x", "STUBSMITH_API_URL": "http://my-api:4000"},
+            {"STUBSMITH_API_KEY": "sk-x", "STUBSMITH_API_URL": "https://my-api:4000"},
         ):
-            with patch("urllib.request.urlopen", return_value=mock_resp) as mopen:
+            with patch("stubsmith._endpoint.urlopen", return_value=mock_resp) as mopen:
                 fixtures("GET /v1/test")
         url = mopen.call_args[0][0].full_url
-        self.assertTrue(url.startswith("http://my-api:4000"))
+        self.assertTrue(url.startswith("https://my-api:4000"))
 
     def test_invalid_pattern_no_space_raises_value_error(self):
         with self.assertRaises(ValueError):
@@ -268,7 +268,7 @@ class TestFixturesErrors(unittest.TestCase):
             hdrs=None,
             fp=MagicMock(read=lambda: b'{"error":"invalid or missing auth"}'),
         )
-        with patch("urllib.request.urlopen", side_effect=err):
+        with patch("stubsmith._endpoint.urlopen", side_effect=err):
             with self.assertRaises(RuntimeError) as ctx:
                 fixtures("POST /v1/charges", api_url="http://localhost:3000", api_key="sk-bad")
         self.assertIn("401", str(ctx.exception))
@@ -281,7 +281,7 @@ class TestFixturesErrors(unittest.TestCase):
             hdrs=None,
             fp=MagicMock(read=lambda: b'{"error":"request type not found"}'),
         )
-        with patch("urllib.request.urlopen", side_effect=err):
+        with patch("stubsmith._endpoint.urlopen", side_effect=err):
             with self.assertRaises(RuntimeError) as ctx:
                 fixtures("GET /v1/charges/{id}", api_url="http://localhost:3000", api_key="sk-t", limit=1)
         self.assertIn("404", str(ctx.exception))

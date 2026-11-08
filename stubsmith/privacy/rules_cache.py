@@ -42,6 +42,8 @@ import urllib.request
 import urllib.error
 from typing import Any, Dict, List, Optional, Tuple
 
+from .. import _endpoint
+from .._endpoint import InsecureEndpointError, check_endpoint
 from .._version import __version__
 from .field_rules import CompiledFieldRules, compile_field_rules
 from .masking import CompiledRules, compile_rules
@@ -239,6 +241,12 @@ class RulesCache:
         responses without a real HTTP server.
         """
         try:
+            check_endpoint(url)
+        except InsecureEndpointError as exc:
+            if self._debug:
+                logger.warning("stubsmith rules-cache: %s", exc)
+            return 0, None
+        try:
             req = urllib.request.Request(
                 url,
                 headers={
@@ -246,7 +254,7 @@ class RulesCache:
                     "User-Agent": _SDK_USER_AGENT,
                 },
             )
-            with urllib.request.urlopen(req, timeout=_SYNC_TIMEOUT) as resp:
+            with _endpoint.urlopen(req, timeout=_SYNC_TIMEOUT) as resp:
                 raw = resp.read()
                 content_type = resp.headers.get("content-type", "") if resp.headers else ""
                 try:
