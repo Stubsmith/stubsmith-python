@@ -413,7 +413,7 @@ class TestFixturesReturnType(unittest.TestCase):
 
     def test_fixtures_returns_plain_list(self):
         with patch(
-            "urllib.request.urlopen",
+            "stubsmith._endpoint.urlopen",
             return_value=self._urlopen_mock([_FX_200, _FX_404]),
         ):
             result = fixtures(
@@ -427,7 +427,7 @@ class TestFixturesReturnType(unittest.TestCase):
 
     def test_fixtures_does_not_return_bundle(self):
         with patch(
-            "urllib.request.urlopen",
+            "stubsmith._endpoint.urlopen",
             return_value=self._urlopen_mock([_FX_200]),
         ):
             result = fixtures(

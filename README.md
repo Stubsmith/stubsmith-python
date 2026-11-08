@@ -53,7 +53,7 @@ resp = httpx.get("https://api.example.com/users")
 Or configure via environment variables and call `install()` with no arguments:
 
 ```bash
-export STUBSMITH_URL="http://ingest:8081/v1/captures"
+export STUBSMITH_URL="https://ingest.stubsmith.dev/v1/captures"
 export STUBSMITH_API_KEY="sk-your-project-key"
 ```
 
@@ -162,6 +162,13 @@ in this process: `False` before `install()`, `False` after `close()`, and
 
 Both are overridable (`url` and `backend_url`) for a project pointed at a
 different environment.
+
+The SDK sends only over https. A plain `http://` URL is accepted only for
+`localhost`, `127.0.0.1` and `::1`, for a backend on your own machine. With any
+other `http://` URL for `url` or `backend_url`, `install()` logs a warning and
+capture stays off, so nothing is sent; `stubsmith pull` and `fixtures()` raise
+an error instead. The SDK never follows a redirect: a 3xx answer is treated as
+an error, so the API key is never re-sent to another URL.
 
 It also starts exactly two daemon threads: `stubsmith-sender` (drains the
 capture queue) and `stubsmith-rules-cache` (polls for rules).
@@ -713,6 +720,21 @@ small enough that a keyed hash could be reversed with a lookup table.  Use
 ---
 
 ## Changelog
+
+### 0.8.1
+
+**The SDK sends only over https.** Captures, the rules sync, `stubsmith pull`
+and `fixtures()` used to send to any URL they were given, including a plain
+`http://` one, so a mistyped `STUBSMITH_URL` sent captures and the API key
+unencrypted. A plain `http://` URL is now accepted only for `localhost`,
+`127.0.0.1` and `::1`. With any other `http://` URL for `url` or
+`backend_url`, `install()` logs a warning and capture stays off, and nothing is
+sent. `stubsmith pull` and `fixtures()` raise an error. The SDK also no longer
+follows redirects: it used to re-send the API key to wherever a 3xx pointed,
+including a plain `http://` URL, and now treats a 3xx as an error. What to
+check: if you point the SDK at your own backend over plain http on another
+host, put it behind https, and point it at the final URL, not one that
+redirects.
 
 ### 0.8.0
 

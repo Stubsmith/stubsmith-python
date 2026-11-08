@@ -62,7 +62,7 @@ class CaptureSink:
 def make_client(raise_on_send: bool = False, **kwargs) -> tuple[StubSmith, CaptureSink]:
     sink = CaptureSink(raise_on_send=raise_on_send)
     client = StubSmith(
-        url="http://stubsmith.test/v1/captures",
+        url="https://stubsmith.test/v1/captures",
         api_key="sk-test-key",
         _send_fn=sink,
         **kwargs,
@@ -282,7 +282,7 @@ def test_disabled_no_capture_when_no_api_key():
     # No api_key → auto-disabled
     sink = CaptureSink()
     client = StubSmith(
-        url="http://stubsmith.test/v1/captures",
+        url="https://stubsmith.test/v1/captures",
         api_key="",   # empty → disabled
         _send_fn=sink,
     )
@@ -315,7 +315,7 @@ def test_disabled_explicit_flag():
 
     sink = CaptureSink()
     client = StubSmith(
-        url="http://stubsmith.test/v1/captures",
+        url="https://stubsmith.test/v1/captures",
         api_key="sk-key",
         enabled=False,
         _send_fn=sink,
@@ -392,7 +392,7 @@ def test_debug_on_send_failure_logs_http_status(caplog):
 
     def _raise_http_error(payload):
         raise urllib.error.HTTPError(
-            "http://stubsmith.test/v1/captures",
+            "https://stubsmith.test/v1/captures",
             401,
             "Unauthorized",
             {},
@@ -400,7 +400,7 @@ def test_debug_on_send_failure_logs_http_status(caplog):
         )
 
     client = StubSmith(
-        url="http://stubsmith.test/v1/captures",
+        url="https://stubsmith.test/v1/captures",
         api_key="sk-test-debug-key",
         _send_fn=_raise_http_error,
         debug=True,
@@ -541,11 +541,11 @@ def test_do_send_sets_sdk_user_agent():
         return mock_resp
 
     client = StubSmith(
-        url="http://stubsmith.test/v1/captures",
+        url="https://stubsmith.test/v1/captures",
         api_key="sk-ua-test",
     )
 
-    with patch("stubsmith.client.urllib.request.urlopen", side_effect=_fake_urlopen):
+    with patch("stubsmith._endpoint.urlopen", side_effect=_fake_urlopen):
         client._do_send({"source": "test", "status": 200, "duration": 1})
 
     client.close()
@@ -587,7 +587,7 @@ def _http_error(code: int, body: bytes):
     import io
 
     return urllib.error.HTTPError(
-        "http://stubsmith.test/v1/captures", code, "err", {}, io.BytesIO(body)
+        "https://stubsmith.test/v1/captures", code, "err", {}, io.BytesIO(body)
     )
 
 
@@ -610,14 +610,14 @@ def _refusal_records(caplog):
 
 def _new_client(debug: bool = False):
     return StubSmith(
-        url="http://stubsmith.test/v1/captures", api_key="sk-refusal-test", debug=debug
+        url="https://stubsmith.test/v1/captures", api_key="sk-refusal-test", debug=debug
     )
 
 
 def test_do_send_warns_on_200_ok_false_once(caplog):
     client = _new_client()
     with caplog.at_level(logging.WARNING, logger="stubsmith"):
-        with patch("stubsmith.client.urllib.request.urlopen", return_value=_fake_resp(_LIMIT_BODY)):
+        with patch("stubsmith._endpoint.urlopen", return_value=_fake_resp(_LIMIT_BODY)):
             results = [client._do_send(dict(_PAYLOAD)) for _ in range(3)]
     client.close()
 
@@ -635,7 +635,7 @@ def test_do_send_warns_on_200_ok_false_once(caplog):
 def test_drain_warns_via_enqueue_flush_once(caplog):
     client = _new_client()
     with caplog.at_level(logging.WARNING, logger="stubsmith"):
-        with patch("stubsmith.client.urllib.request.urlopen", return_value=_fake_resp(_LIMIT_BODY)):
+        with patch("stubsmith._endpoint.urlopen", return_value=_fake_resp(_LIMIT_BODY)):
             for _ in range(3):
                 client.enqueue(dict(_PAYLOAD))
             client.flush()
@@ -650,13 +650,13 @@ def test_drain_warns_via_enqueue_flush_once(caplog):
 def test_second_distinct_code_via_http_error_warns_separately(caplog):
     client = _new_client()
     with caplog.at_level(logging.WARNING, logger="stubsmith"):
-        with patch("stubsmith.client.urllib.request.urlopen", return_value=_fake_resp(_LIMIT_BODY)):
+        with patch("stubsmith._endpoint.urlopen", return_value=_fake_resp(_LIMIT_BODY)):
             client.enqueue(dict(_PAYLOAD))
             client.flush()
             _wait_for_worker(client)
         for _ in range(2):
             with patch(
-                "stubsmith.client.urllib.request.urlopen",
+                "stubsmith._endpoint.urlopen",
                 side_effect=lambda *a, **k: (_ for _ in ()).throw(_http_error(422, _PII_BODY)),
             ):
                 client.enqueue(dict(_PAYLOAD))
@@ -681,10 +681,10 @@ def test_unreadable_http_error_body_cannot_escape(caplog):
         def close(self):
             pass
 
-    err = urllib.error.HTTPError("http://stubsmith.test/", 500, "err", {}, _Broken())
+    err = urllib.error.HTTPError("https://stubsmith.test/", 500, "err", {}, _Broken())
     client = _new_client()
     with caplog.at_level(logging.WARNING, logger="stubsmith"):
-        with patch("stubsmith.client.urllib.request.urlopen", side_effect=err):
+        with patch("stubsmith._endpoint.urlopen", side_effect=err):
             client.enqueue(dict(_PAYLOAD))
             client.flush()
             _wait_for_worker(client)
@@ -700,7 +700,7 @@ def test_unreadable_http_error_body_cannot_escape(caplog):
 def test_non_refusal_bodies_do_not_warn(caplog, body):
     client = _new_client()
     with caplog.at_level(logging.WARNING, logger="stubsmith"):
-        with patch("stubsmith.client.urllib.request.urlopen", return_value=_fake_resp(body)):
+        with patch("stubsmith._endpoint.urlopen", return_value=_fake_resp(body)):
             assert client._do_send(dict(_PAYLOAD)) is None
     client.close()
 
@@ -713,13 +713,13 @@ def test_refusal_warning_dedupe_is_controlled_by_warned_set(caplog):
     client_mod._warned_ingest_codes.add("fingerprint_limit_reached")
     client = _new_client()
     with caplog.at_level(logging.WARNING, logger="stubsmith"):
-        with patch("stubsmith.client.urllib.request.urlopen", return_value=_fake_resp(_LIMIT_BODY)):
+        with patch("stubsmith._endpoint.urlopen", return_value=_fake_resp(_LIMIT_BODY)):
             client._do_send(dict(_PAYLOAD))
     assert _refusal_records(caplog) == []
 
     client_mod._reset_ingest_warnings()
     with caplog.at_level(logging.WARNING, logger="stubsmith"):
-        with patch("stubsmith.client.urllib.request.urlopen", return_value=_fake_resp(_LIMIT_BODY)):
+        with patch("stubsmith._endpoint.urlopen", return_value=_fake_resp(_LIMIT_BODY)):
             client._do_send(dict(_PAYLOAD))
     client.close()
     assert len(_refusal_records(caplog)) == 1
@@ -728,7 +728,7 @@ def test_refusal_warning_dedupe_is_controlled_by_warned_set(caplog):
 def test_debug_mode_logs_body_for_every_refusal(caplog):
     client = _new_client(debug=True)
     with caplog.at_level(logging.WARNING, logger="stubsmith"):
-        with patch("stubsmith.client.urllib.request.urlopen", return_value=_fake_resp(_LIMIT_BODY)):
+        with patch("stubsmith._endpoint.urlopen", return_value=_fake_resp(_LIMIT_BODY)):
             for _ in range(3):
                 client._do_send(dict(_PAYLOAD))
     client.close()
@@ -811,12 +811,12 @@ def test_rules_cache_sets_sdk_user_agent():
 
     cache = RulesCache(
         api_key="sk-ua-test",
-        backend_url="http://fake.test",
+        backend_url="https://fake.test",
     )
 
-    with patch("stubsmith.privacy.rules_cache.urllib.request.urlopen",
+    with patch("stubsmith._endpoint.urlopen",
                side_effect=_fake_urlopen):
-        cache._http_get("http://fake.test/v1/sdk/sync?cursor=0")
+        cache._http_get("https://fake.test/v1/sdk/sync?cursor=0")
 
     assert captured, "urlopen was not called"
     req = captured[0]
@@ -1240,7 +1240,7 @@ def test_flush_abandons_the_wait_once_a_send_fails():
         raise RuntimeError("simulated network timeout")
 
     client = StubSmith(
-        url="http://stubsmith.test/v1/captures",
+        url="https://stubsmith.test/v1/captures",
         api_key="sk-test-key",
         _send_fn=slow_failing_send,
     )
@@ -1441,10 +1441,10 @@ def test_uninstrument_restores_both_patch_points():
 def test_repeated_install_returns_one_client():
     import stubsmith
 
-    first = stubsmith.install(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+    first = stubsmith.install(url="https://stubsmith.test/v1/captures", api_key="sk-test")
     try:
         for _ in range(4):
-            assert stubsmith.install(url="http://other.test/v1/captures", api_key="sk-x") is first
+            assert stubsmith.install(url="https://other.test/v1/captures", api_key="sk-x") is first
     finally:
         first.close()
 
@@ -1456,11 +1456,11 @@ def test_repeated_install_does_not_accumulate_threads():
         return [t.name for t in threading.enumerate() if t.name.startswith("stubsmith-")]
 
     baseline = len(sdk_threads())
-    client = stubsmith.install(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+    client = stubsmith.install(url="https://stubsmith.test/v1/captures", api_key="sk-test")
     try:
         after_first = len(sdk_threads())
         for _ in range(4):
-            stubsmith.install(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+            stubsmith.install(url="https://stubsmith.test/v1/captures", api_key="sk-test")
         assert len(sdk_threads()) == after_first, sdk_threads()
         # Sanity: the first install really did start threads, so the assertion
         # above is not comparing zero with zero.
@@ -1473,9 +1473,9 @@ def test_install_after_close_builds_a_new_client():
     """A closed client must not be handed back inert."""
     import stubsmith
 
-    first = stubsmith.install(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+    first = stubsmith.install(url="https://stubsmith.test/v1/captures", api_key="sk-test")
     first.close()
-    second = stubsmith.install(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+    second = stubsmith.install(url="https://stubsmith.test/v1/captures", api_key="sk-test")
     try:
         assert second is not first
         assert second._worker.is_alive()
@@ -1492,7 +1492,7 @@ def test_install_forwards_flush_timeout():
     import stubsmith
 
     client = stubsmith.install(
-        url="http://stubsmith.test/v1/captures", api_key="sk-test", flush_timeout=0,
+        url="https://stubsmith.test/v1/captures", api_key="sk-test", flush_timeout=0,
     )
     try:
         assert client.flush_timeout == 0.0
@@ -1504,7 +1504,7 @@ def test_is_installed_tracks_the_live_client():
     import stubsmith
 
     assert stubsmith.is_installed() is False
-    client = stubsmith.install(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+    client = stubsmith.install(url="https://stubsmith.test/v1/captures", api_key="sk-test")
     try:
         assert stubsmith.is_installed() is True
     finally:
@@ -1521,7 +1521,7 @@ def test_is_installed_holds_where_the_module_level_helpers_do_not():
     import stubsmith
 
     unpatched_helper = requests.request
-    client = stubsmith.install(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+    client = stubsmith.install(url="https://stubsmith.test/v1/captures", api_key="sk-test")
     try:
         assert requests.request is unpatched_helper
         assert requests.get.__module__ == "requests.api"
@@ -1553,7 +1553,7 @@ def test_captures_are_delivered_after_fork(tmp_path):
             fh.write("sent\n")
 
     client = StubSmith(
-        url="http://stubsmith.test/v1/captures", api_key="sk-test", _send_fn=send
+        url="https://stubsmith.test/v1/captures", api_key="sk-test", _send_fn=send
     )
     try:
         pid = os.fork()
@@ -1593,7 +1593,7 @@ def test_forked_child_starts_with_an_empty_queue(tmp_path):
         gate.wait(timeout=10)
 
     client = StubSmith(
-        url="http://stubsmith.test/v1/captures",
+        url="https://stubsmith.test/v1/captures",
         api_key="sk-test",
         _send_fn=blocking_send,
     )
@@ -1751,7 +1751,7 @@ class TestQueueByteBudget:
     def test_the_budget_blocks_a_capture_that_would_exceed_it(self):
         sink = CaptureSink()
         client = StubSmith(
-            url="http://stubsmith.test/v1/captures", api_key="sk-test",
+            url="https://stubsmith.test/v1/captures", api_key="sk-test",
             _send_fn=sink, max_queue_bytes=4096, max_payload_bytes=10 * 1024 * 1024,
         )
         # Stop the worker so nothing drains and the budget stays committed.
@@ -1820,12 +1820,12 @@ class TestSendCompression:
             seen["body"] = req.data
             return _Resp()
 
-        with patch("urllib.request.urlopen", _urlopen):
+        with patch("stubsmith._endpoint.urlopen", _urlopen):
             client._do_send(payload)
         return seen
 
     def test_a_large_payload_is_gzipped(self):
-        client = StubSmith(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+        client = StubSmith(url="https://stubsmith.test/v1/captures", api_key="sk-test")
         try:
             payload = {"resp_body": json.dumps({"items": [{"v": "<masked>"}] * 3000})}
             raw = json.dumps(payload).encode()
@@ -1840,7 +1840,7 @@ class TestSendCompression:
 
     def test_a_small_payload_is_not_gzipped(self):
         """Below the threshold gzip costs CPU and a header to save nothing."""
-        client = StubSmith(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+        client = StubSmith(url="https://stubsmith.test/v1/captures", api_key="sk-test")
         try:
             payload = {"resp_body": '{"a": 1}'}
             seen = self._post(client, payload)
@@ -1857,7 +1857,7 @@ class TestSendCompression:
         keeps the SDK from paying compression cost on payloads where the saving
         is a few hundred bytes and irrelevant.
         """
-        client = StubSmith(url="http://stubsmith.test/v1/captures", api_key="sk-test")
+        client = StubSmith(url="https://stubsmith.test/v1/captures", api_key="sk-test")
         try:
             payload = {"resp_body": "<masked>" * 100}  # ~800 bytes, very compressible
             raw = json.dumps(payload).encode()
@@ -1871,7 +1871,7 @@ class TestSendCompression:
             client.close()
 
     def test_compression_can_be_disabled(self):
-        client = StubSmith(url="http://stubsmith.test/v1/captures", api_key="sk-test",
+        client = StubSmith(url="https://stubsmith.test/v1/captures", api_key="sk-test",
                            compress=False)
         try:
             payload = {"resp_body": json.dumps({"items": [{"v": "<masked>"}] * 3000})}
@@ -1887,7 +1887,7 @@ class TestSendCompression:
         hundreds of megabytes on the server."""
         sink = CaptureSink()
         client = StubSmith(
-            url="http://stubsmith.test/v1/captures", api_key="sk-test",
+            url="https://stubsmith.test/v1/captures", api_key="sk-test",
             _send_fn=sink, max_payload_bytes=64 * 1024,
         )
         try:
