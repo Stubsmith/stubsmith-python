@@ -1452,19 +1452,21 @@ def test_repeated_install_returns_one_client():
 def test_repeated_install_does_not_accumulate_threads():
     import stubsmith
 
+    # Threads by identity, not a count: SDK threads left running by earlier
+    # tests may exit while this one runs, and must not count either way.
     def sdk_threads():
-        return [t.name for t in threading.enumerate() if t.name.startswith("stubsmith-")]
+        return {t for t in threading.enumerate() if t.name.startswith("stubsmith-")}
 
-    baseline = len(sdk_threads())
+    before = sdk_threads()
     client = stubsmith.install(url="https://stubsmith.test/v1/captures", api_key="sk-test")
     try:
-        after_first = len(sdk_threads())
+        started = sdk_threads() - before
+        # Sanity: the first install really did start threads, so the assertion
+        # below is not comparing two empty sets.
+        assert started
         for _ in range(4):
             stubsmith.install(url="https://stubsmith.test/v1/captures", api_key="sk-test")
-        assert len(sdk_threads()) == after_first, sdk_threads()
-        # Sanity: the first install really did start threads, so the assertion
-        # above is not comparing zero with zero.
-        assert after_first > baseline
+        assert sdk_threads() - before == started, sorted(t.name for t in sdk_threads() - before)
     finally:
         client.close()
 
