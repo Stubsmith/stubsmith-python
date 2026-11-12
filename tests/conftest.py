@@ -75,3 +75,37 @@ def _no_first_sync_hold(monkeypatch):
     ``stubsmith.client.FIRST_SYNC_HOLD`` back.
     """
     monkeypatch.setattr("stubsmith.client.FIRST_SYNC_HOLD", 0.0)
+
+
+@pytest.fixture
+def block_real_network(monkeypatch):
+    """Raise on any network attempt that would leave the loopback interface.
+
+    Not autouse: request it from a test, or wrap it in a class-level autouse
+    fixture.  Loopback connects are allowed (the unreachable test port rejects
+    immediately); everything else, and urllib.request.urlopen, raises.
+    """
+    import socket
+    import urllib.request
+
+    _real_connect = socket.socket.connect
+
+    def _guarded_connect(self, address):
+        host = address[0] if isinstance(address, tuple) else address
+        # Allow 127.0.0.1 and ::1 (the test target port 1 rejects immediately).
+        if host not in ("127.0.0.1", "::1", "localhost"):
+            raise AssertionError(
+                f"Network isolation breach: socket.connect({address!r}) - "
+                "this test must not make real network calls."
+            )
+        return _real_connect(self, address)
+
+    monkeypatch.setattr(socket.socket, "connect", _guarded_connect)
+
+    def _blocked_urlopen(*args, **kwargs):
+        raise AssertionError(
+            "Network isolation breach: urllib.request.urlopen() - "
+            "this test must not make real network calls."
+        )
+
+    monkeypatch.setattr(urllib.request, "urlopen", _blocked_urlopen)

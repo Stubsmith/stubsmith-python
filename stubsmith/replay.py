@@ -1,7 +1,8 @@
 """
-stubsmith.replay - offline HTTP replay for the requests library.
+stubsmith.replay - offline HTTP replay for requests and httpx.
 
-Intercepts outbound requests at the ``Session.send`` level, fingerprints each
+Intercepts outbound requests at ``requests.Session.send`` and at httpx
+``Client.send`` / ``AsyncClient.send``, fingerprints each
 request the same way the capture path does, and returns the recorded response
 from a bundle file.  No network call is ever made.
 
@@ -884,6 +885,34 @@ def _build_response(request: Any, variant: Dict[str, Any]) -> Any:
     return response
 
 
+def _build_httpx_response(request: Any, variant: Dict[str, Any]) -> Any:
+    """Construct an ``httpx.Response`` from a bundle variant.
+
+    Hop-by-hop headers are stripped exactly as in :func:`_build_response`.
+    """
+    import httpx as _httpx
+
+    raw_headers: Dict[str, str] = variant.get("headers") or {}
+    safe_headers = {
+        k: v
+        for k, v in raw_headers.items()
+        if k.lower() not in _HOP_BY_HOP
+    }
+    raw_body = variant.get("body") or ""
+    if isinstance(raw_body, (dict, list)):
+        raw_body = json.dumps(raw_body)
+    body_bytes = _decode_body(raw_body, variant.get("body_encoding"))
+    response = _httpx.Response(
+        variant.get("status", 200),
+        headers=safe_headers,
+        content=body_bytes,
+        request=request,
+    )
+    duration_ms = variant.get("duration_ms") or 0
+    response.elapsed = datetime.timedelta(milliseconds=duration_ms)
+    return response
+
+
 class ServedResponse:
     """One recorded response that a replay context served.
 
@@ -1063,8 +1092,9 @@ class ReplayContext:
 
     Do not instantiate directly - use :func:`replay` instead.
 
-    Patches ``requests.sessions.Session.send`` so that every outbound
-    ``requests`` call is intercepted and matched against the bundle.
+    Patches ``requests.sessions.Session.send`` and, when httpx is installed,
+    ``httpx.Client.send`` and ``httpx.AsyncClient.send``, so that every
+    outbound call is intercepted and matched against the bundle.
     Patching at ``Session.send`` level ensures the ``PreparedRequest``
     already carries the final URL with ``params=`` merged in, matching the
     fingerprint that the capture path recorded.
@@ -1101,6 +1131,8 @@ class ReplayContext:
         settings = bundle.get("project_settings")
         self._group_ids = not (isinstance(settings, dict) and settings.get("group_ids_in_paths") is False)
         self._original_send: Optional[Any] = None
+        self._original_httpx_send: Optional[Any] = None
+        self._original_httpx_async_send: Optional[Any] = None
         self._active = False
         self._select = select
         self._statuses = frozenset(statuses) if statuses is not None else None
@@ -1172,7 +1204,7 @@ class ReplayContext:
 
         Multiple active contexts must be stopped in reverse order (LIFO)
         - stopping A while B started later is still active would restore the
-        wrong ``Session.send``.  ``with`` blocks enforce this automatically.
+        wrong ``Session.send`` (or httpx ``send``).  ``with`` blocks enforce this automatically.
 
         Returns
         -------
@@ -1183,37 +1215,68 @@ class ReplayContext:
         """
         if self._active:
             return self
+        # Patch each library that is importable, so a project with only httpx
+        # (or only requests) can replay.  The originals are whatever is on the
+        # class now (possibly capture's wrapper), so stop() puts back exactly
+        # what start() found.
         try:
             import requests.sessions as _rs
-        except ImportError as exc:
+        except ImportError:
+            _rs = None
+        try:
+            import httpx as _hx
+        except ImportError:
+            _hx = None
+        if _rs is None and _hx is None:
             raise ImportError(
-                "stubsmith.replay() requires the 'requests' library. "
-                "Install it with:  pip install requests"
-            ) from exc
+                "stubsmith.replay() requires the 'requests' or 'httpx' library. "
+                "Install one with:  pip install requests  or  pip install httpx"
+            )
 
-        self._original_send = _rs.Session.send
         _context = self
 
-        def _send_stub(session: Any, request: Any, **kwargs: Any) -> Any:
-            # replay wins: intercept at transport level, never touch the wire.
-            return _context._handle(request)
+        if _rs is not None:
+            self._original_send = _rs.Session.send
 
-        _rs.Session.send = _send_stub  # type: ignore[method-assign]
+            def _send_stub(session: Any, request: Any, **kwargs: Any) -> Any:
+                # replay wins: intercept at transport level, never touch the wire.
+                return _context._handle(request)
+
+            _rs.Session.send = _send_stub  # type: ignore[method-assign]
+
+        if _hx is not None:
+            self._original_httpx_send = _hx.Client.send
+            self._original_httpx_async_send = _hx.AsyncClient.send
+
+            def _httpx_send_stub(client: Any, request: Any, **kwargs: Any) -> Any:
+                return _context._handle_httpx(request)
+
+            async def _httpx_async_send_stub(client: Any, request: Any, **kwargs: Any) -> Any:
+                return _context._handle_httpx(request)
+
+            _hx.Client.send = _httpx_send_stub  # type: ignore[method-assign]
+            _hx.AsyncClient.send = _httpx_async_send_stub  # type: ignore[method-assign]
         enter_replay()
         self._active = True
         return self
 
     def stop(self) -> None:
-        """Deactivate the replay hook and restore the original ``Session.send``."""
+        """Deactivate the replay hook and restore every ``send`` it patched."""
         if not self._active:
             return
-        try:
-            import requests.sessions as _rs
-        except ImportError:
-            return
+        # Each library is restored on its own: one that is missing must not
+        # leave the other patched.
         if self._original_send is not None:
+            import requests.sessions as _rs
             _rs.Session.send = self._original_send  # type: ignore[method-assign]
         self._original_send = None
+        if self._original_httpx_send is not None:
+            import httpx as _hx
+            _hx.Client.send = self._original_httpx_send  # type: ignore[method-assign]
+            if self._original_httpx_async_send is not None:
+                _hx.AsyncClient.send = self._original_httpx_async_send  # type: ignore[method-assign]
+        self._original_httpx_send = None
+        self._original_httpx_async_send = None
         exit_replay()
         self._active = False
 
@@ -1230,18 +1293,7 @@ class ReplayContext:
     # ------------------------------------------------------------------
 
     def _handle(self, request: Any) -> Any:
-        """Match *request* against the bundle and return the stub response.
-
-        Parameters
-        ----------
-        request:
-            A ``requests.PreparedRequest`` with the final prepared URL
-            (including any ``params=`` merged in by
-            ``PreparedRequest.prepare()``).
-
-        Returns
-        -------
-        requests.Response
+        """Match a ``requests.PreparedRequest`` and return the stub response.
 
         Raises
         ------
@@ -1249,21 +1301,66 @@ class ReplayContext:
             When no stub matches in strict mode.  Never falls through to
             the network - that is the absolute guarantee of this method.
         """
+        variant = self._match(
+            request.method, request.url, request.body, request.headers,
+        )
+        return _build_response(request, variant)
+
+    def _handle_httpx(self, request: Any) -> Any:
+        """Match an ``httpx.Request`` and return an ``httpx.Response``."""
+        try:
+            body: Any = request.content
+        except Exception:
+            # Unread streaming request body: treat as empty, as capture does.
+            body = None
+        variant = self._match(
+            request.method, str(request.url), body, request.headers,
+        )
+        return _build_httpx_response(request, variant)
+
+    def _match(
+        self,
+        method: Optional[str],
+        url_str: Optional[str],
+        body: Any,
+        headers: Any,
+    ) -> Dict[str, Any]:
+        """Shared matching for every HTTP library.
+
+        Parameters
+        ----------
+        method, url_str:
+            Request method and final URL (query string included).
+        body:
+            ``bytes``, ``str`` or ``None``; anything else counts as empty.
+        headers:
+            Mapping of request headers (case-insensitive use).
+
+        Returns
+        -------
+        dict
+            The chosen bundle variant; the served response is recorded.
+
+        Raises
+        ------
+        StubNotFound
+            When no stub matches.  Never falls through to the network.
+        """
         # ── Parse the prepared URL ────────────────────────────────────────
-        url = request.url or ""
+        url = url_str or ""
         parsed = urlparse(url)
         # e.g. "api.example.com:8080"; userinfo dropped as in captures.
         domain = (parsed.netloc or "").rpartition("@")[2]
         path = parsed.path or "/"
         query_string = parsed.query or ""
-        method = (request.method or "GET").upper()
+        method = (method or "GET").upper()
 
         # ── Template the path ─────────────────────────────────────────────
         curated = self._curated.get((method, domain), [])
         path_tmpl = template_path(path, curated, group_ids=self._group_ids)
 
         # ── Extract body and content-type ─────────────────────────────────
-        raw_body = request.body
+        raw_body = body
         if isinstance(raw_body, bytes):
             try:
                 body_str: str = raw_body.decode("utf-8")
@@ -1275,7 +1372,7 @@ class ReplayContext:
             body_str = ""
 
         headers_lower = {
-            k.lower(): v for k, v in (request.headers or {}).items()
+            k.lower(): v for k, v in (headers or {}).items()
         }
         content_type = headers_lower.get("content-type", "")
 
@@ -1354,7 +1451,7 @@ class ReplayContext:
                 degraded_msg = f"{degraded_msg}\n[bundle loaded from: {self.bundle_path}]"
             raise StubNotFound(method, path_tmpl, fp, degraded_msg)
 
-        return _build_response(request, variant)
+        return variant
 
 
 # ---------------------------------------------------------------------------

@@ -456,6 +456,10 @@ hash mechanics, all three configuration methods, and the privacy guarantees.
 calls.  Inside the block no network call is made and the dependency does not
 need to be running.
 
+Replay intercepts `requests` and `httpx` (`Client` and `AsyncClient`), and both
+match and miss in exactly the same way.  Responses captured with httpx
+`client.stream()` are stored without a body, so they replay with an empty body.
+
 ```python
 import stubsmith
 
@@ -720,6 +724,22 @@ small enough that a keyed hash could be reversed with a lookup table.  Use
 ---
 
 ## Changelog
+
+### 0.9.0
+
+**`replay()` now answers httpx calls.** Inside `replay()` and `replay_all()`,
+requests made with `httpx.Client` and `httpx.AsyncClient` are answered from the
+bundle, matched the same way as `requests` calls: method, path pattern, query
+parameter names and body shape. A request with no recording raises the same
+`StubNotFound` with the same message, and no httpx request reaches the network.
+Before this release, httpx calls inside `replay()` went to the real service.
+`replay()` no longer needs `requests`: with only httpx installed
+(`stubsmith[httpx]`), it replays httpx calls.
+`client.stream()` works and serves the recorded body. One limit: a response
+that was captured through httpx `client.stream()` is stored without a body, so
+it replays with an empty body. What to check: if your code under test uses
+httpx and your tests relied on reaching a real service inside `replay()`, that
+call now gets the recorded response or raises `StubNotFound`.
 
 ### 0.8.1
 
