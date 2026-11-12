@@ -1662,32 +1662,9 @@ class TestInstallWaitForRules:
     """
 
     @pytest.fixture(autouse=True)
-    def _block_real_network(self, monkeypatch):
+    def _block_real_network(self, block_real_network):
         """Raise on any network attempt that would leave the loopback interface."""
-        import socket
-        import urllib.request
-
-        _real_connect = socket.socket.connect
-
-        def _guarded_connect(self, address):
-            host = address[0] if isinstance(address, tuple) else address
-            # Allow 127.0.0.1 and ::1 (the test target port 1 rejects immediately).
-            if host not in ("127.0.0.1", "::1", "localhost"):
-                raise AssertionError(
-                    f"Network isolation breach: socket.connect({address!r}) - "
-                    "TestInstallWaitForRules must not make real network calls."
-                )
-            return _real_connect(self, address)
-
-        monkeypatch.setattr(socket.socket, "connect", _guarded_connect)
-
-        def _blocked_urlopen(*args, **kwargs):
-            raise AssertionError(
-                "Network isolation breach: urllib.request.urlopen() - "
-                "TestInstallWaitForRules must not make real network calls."
-            )
-
-        monkeypatch.setattr(urllib.request, "urlopen", _blocked_urlopen)
+        yield
 
     def test_default_zero_does_not_block(self):
         """Default wait_for_rules=0 returns immediately without touching the cache."""
