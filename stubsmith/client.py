@@ -38,6 +38,7 @@ from typing import Any, Callable, Dict, Optional, Tuple
 
 from . import _endpoint
 from ._endpoint import InsecureEndpointError, check_endpoint
+from ._rejected_key import _report_rejected_key
 from ._replay_state import is_replay_active
 from ._version import __version__
 from .privacy.pipeline import RAW_PATH_FIELD
@@ -1003,6 +1004,7 @@ class StubSmith:
                         raw = exc.read(_INGEST_ERROR_READ_BYTES)
                     except Exception:
                         raw = None
+                    _report_rejected_key(getattr(exc, "code", None))
                     _report_ingest_refusal(raw, getattr(exc, "code", None), self._debug)
                 # Errors are always swallowed so the caller is never affected.
                 # In debug mode a WARNING is emitted with the exception class,

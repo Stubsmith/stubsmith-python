@@ -50,11 +50,14 @@ def _fresh_install_registry():
 @pytest.fixture(autouse=True)
 def _fresh_ingest_warnings():
     """Refusal warnings are once per process; each test starts with none spent."""
+    from stubsmith._rejected_key import _reset_rejected_key_warning
     from stubsmith.client import _reset_ingest_warnings
 
     _reset_ingest_warnings()
+    _reset_rejected_key_warning()
     yield
     _reset_ingest_warnings()
+    _reset_rejected_key_warning()
 
 
 @pytest.fixture(autouse=True)

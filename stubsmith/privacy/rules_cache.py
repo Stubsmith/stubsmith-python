@@ -44,6 +44,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .. import _endpoint
 from .._endpoint import InsecureEndpointError, check_endpoint
+from .._rejected_key import _report_rejected_key
 from .._version import __version__
 from .field_rules import CompiledFieldRules, compile_field_rules
 from .masking import CompiledRules, compile_rules
@@ -335,6 +336,8 @@ class RulesCache:
 
         sync_url = f"{self._backend_url}/v1/sdk/sync?cursor={cursor}"
         status, body = self._http_get(sync_url)
+
+        _report_rejected_key(status)
 
         if status == 404:
             self._warn_sync_not_found(sync_url)

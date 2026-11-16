@@ -230,8 +230,9 @@ masked, queued, transmitted and then discarded by the server.
 logged at debug level and leaves the last known-good rules in place; it never
 raises and never stops capture. Because masking is fail-closed, a client that
 has never reached the API masks everything and still delivers captures: you get
-`novel=true` and no cleartext, not silence. A rejected key (`401`) behaves the
-same way.
+`novel=true` and no cleartext, not silence. A rejected key is different:
+ingest refuses the same key, so with a rejected key (`401` or `403`) nothing is
+recorded, and the SDK logs one warning.
 
 ### install() is idempotent and fork-safe
 
@@ -724,6 +725,18 @@ small enough that a keyed hash could be reversed with a lookup table.  Use
 ---
 
 ## Changelog
+
+### 0.9.1
+
+**A rejected API key now logs one warning.** When ingest or the rules sync
+answers `401` or `403`, the SDK logs a single WARNING on the `stubsmith` logger,
+with or without debug mode. It says the key was rejected (with the HTTP status),
+that nothing is recorded until the key is fixed, and to check the `api_key`
+option or the `STUBSMITH_API_KEY` environment variable. It is logged once per
+process, however many requests are refused and from whichever path sees the
+refusal first. It never includes the key or any URL. Capture and your
+application's responses are unchanged. Before this release a rejected key was
+silent unless debug mode was on.
 
 ### 0.9.0
 
